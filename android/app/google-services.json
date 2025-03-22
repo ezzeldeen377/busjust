@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "404743355767",
+    "project_id": "bus-just",
+    "storage_bucket": "bus-just.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:404743355767:android:66d2059a4611298f843572",
+        "android_client_info": {
+          "package_name": "com.example.bus_just"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwWApSDUU-uq-9wWZHokB3g_bHUQPtOos"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
