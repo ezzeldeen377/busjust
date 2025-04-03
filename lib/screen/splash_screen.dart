@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
 class SplashScreen extends StatefulWidget {
-
   const SplashScreen({super.key});
 
   @override
@@ -16,21 +15,29 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
   StreamSubscription<User?>? _authSubscription;
+  late final AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 0),
+      duration: const Duration(seconds: 3),
     );
-    _controller.addStatusListener((status) {
+    _animationController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         _checkAuthState();
       }
     });
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _animationController.dispose();
+    super.dispose();
   }
 
   void _checkAuthState() {
@@ -39,19 +46,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       if (user != null) {
         final userData = await FirestoreService.instance.getUserData(user.uid);
         if (!mounted) return;
-       Navigator.pushReplacementNamed(context, Routes.home,arguments: userData); 
+        Navigator.pushReplacementNamed(context, Routes.home, arguments: userData);
       } else {
         if (!mounted) return;
-        Navigator.pushReplacementNamed(context ,Routes.login);
+        Navigator.pushReplacementNamed(context, Routes.login);
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _authSubscription?.cancel();
-    super.dispose();
   }
 
   @override
@@ -62,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0072ff), Color(0xFF00c6ff)], // ألوان خلفية جذابة
+            colors: [Color(0xFF0072ff), Color(0xFF00c6ff)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -70,28 +70,22 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // أنيميشن Lottie في المنتصف
             Lottie.asset(
               'assets/lottie/splash.json',
               width: 600,
               height: 600,
               fit: BoxFit.contain,
-              controller: _controller,
-              onLoaded: (composition) {
-                _controller.duration = composition.duration;
-                _controller.forward();
-              },
+              controller: _animationController,
             ),
-            const Spacer(), // يضيف مسافة تلقائية بين اللوتي والنص
-            // إصدار التطبيق في أسفل الشاشة
+            const Spacer(),
             const Padding(
               padding: EdgeInsets.only(bottom: 30),
               child: Text(
-                "Version 1.0.0", // تغيير النص إلى الإنجليزية
+                "Version 1.0.0",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white, // جعل النص واضحًا على الخلفية
+                  color: Colors.white,
                   letterSpacing: 1.2,
                 ),
               ),

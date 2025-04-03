@@ -1,3 +1,5 @@
+import 'package:bus_just/services/auth_service.dart';
+import 'package:bus_just/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,6 +7,8 @@ import 'package:bus_just/models/driver.dart';
 import 'package:bus_just/models/bus.dart';
 import 'package:bus_just/models/trip.dart';
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 
 class DriverHomeScreen extends StatefulWidget {
   const DriverHomeScreen({super.key});
@@ -14,207 +18,185 @@ class DriverHomeScreen extends StatefulWidget {
 }
 
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // final FirebaseAuth _auth = FirebaseAuth.instance;
+
   Driver? _driver;
   Bus? _assignedBus;
   Trip? _currentTrip;
+  List<Trip> _pendingTrips = [];
   bool _isOnline = false;
-  bool _isOnShift = false;
-  DateTime? _shiftStartTime;
-  DateTime? _shiftEndTime;
-  List<Map<String, dynamic>> _busStops = [];
-  List<Map<String, dynamic>> _routeUpdates = [];
-  
+  StreamSubscription<Position>? _positionStreamSubscription;
+
+
   @override
   void initState() {
     super.initState();
     _loadDriverData();
+    _setupLocationTracking();
   }
-  
+
   Future<void> _loadDriverData() async {
     try {
-      final user = _auth.currentUser;
+      final user = AuthService.instance.currentUser;
       if (user != null) {
-        final driverDoc = await _firestore.collection('users').doc(user.uid).get();
-        if (driverDoc.exists) {
+        _driver = await FirestoreService.instance.getDriverData(user.uid);
+        if (_driver != null) {
           setState(() {
-            _driver = Driver.fromMap(driverDoc.data()! as Map<String, dynamic>);
             _isOnline = _driver?.workStatus == WorkStatus.online;
           });
-          
-          // Load assigned bus
-          if (_driver?.assignedBus != null) {
-            final busDoc = await _firestore.collection('buses').doc(_driver!.assignedBus).get();
+          // Load current trip
+          final activeTripsQuery = await FirestoreService.instance
+              .getFutureDataWithTwoCondition('trips',
+                  condition1: "status",
+                  condition2: "driverId",
+                  value1: "active",
+                  value2: user.uid);
+
+          if (activeTripsQuery.docs.isNotEmpty) {
+            setState(() {
+              _currentTrip = Trip.fromMap(activeTripsQuery.docs.first.data());
+              _startLocationTracking();
+            });
+          } else {
+
+            final pendingTripsQuery = await FirestoreService.instance
+                .getFutureDataWithTwoCondition('trips',
+                condition2: "driverId",value2: _driver?.id,
+                    condition1: "status",
+                    value1: "pending");
+
+            setState(() {
+              _pendingTrips = pendingTripsQuery.docs
+                  .map((doc) => Trip.fromMap(doc.data()))
+                  .toList();
+            });                     
+
+
+          }
+
+          if (_currentTrip?.busId != null) {
+            final busDoc = await FirestoreService.instance
+                .getSpecficData('buses', _currentTrip?.busId ?? '');
             if (busDoc.exists) {
               setState(() {
-                _assignedBus = Bus.fromMap(busDoc.data()! as Map<String, dynamic>);
+                _assignedBus = Bus.fromMap(busDoc.data()!);
               });
             }
           }
-          
-          // Load current trip
-          final tripQuery = await _firestore.collection('trips')
-              .where('driverId', isEqualTo: user.uid)
-              .where('status', isEqualTo: 'active')
-              .limit(1)
-              .get();
-          
-          if (tripQuery.docs.isNotEmpty) {
-            setState(() {
-              _currentTrip = Trip.fromMap(tripQuery.docs.first.data());
-            });
-            _loadBusStops();
-          }
-          
-          // Load route updates
-          _loadRouteUpdates();
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: ${e.toString()}'))
+          SnackBar(content: Text('Error loading data: ${e.toString()}')));
+    }
+  }
+
+
+
+  Future<void> _setupLocationTracking() async {
+    
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are required')),
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location permissions are permanently denied'),
+          ),
+        );
+        return;
+      }
+
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location services are disabled')),
+        );
+        return;
+      }
+
+      if (_currentTrip != null && _currentTrip!.status == 'active') {
+    }
+  }
+
+  void _startLocationTracking() async {
+    try {
+      print("start");
+      _positionStreamSubscription?.cancel();
+      _positionStreamSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 1, // Update when user moves 10 meters
+        ),
+      ).listen(
+        (Position position) async {
+          if (_currentTrip != null) {
+            try {
+              await FirestoreService.instance.updateDocument(
+                collection: 'buses',
+                documentId: _currentTrip!.busId!,
+                data: {
+                  'currentLocation': GeoPoint(
+                    position.latitude,
+                    position.longitude,
+                  ),
+                },
+              );
+            } catch (e) {
+              debugPrint('Error updating location: $e');
+            }
+          }
+        },
       );
-    }
-  }
-  
-  Future<void> _loadBusStops() async {
-    if (_currentTrip == null) return;
-    
-    try {
-      final stopsQuery = await _firestore.collection('bus_stops')
-          .where('tripId', isEqualTo: _currentTrip!.id)
-          .orderBy('sequence')
-          .get();
-      
-      setState(() {
-        _busStops = stopsQuery.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'name': data['name'] as String,
-            'studentCount': data['studentCount'] as int,
-            'location': data['location'] as GeoPoint,
-          };
-        }).toList();
-      });
     } catch (e) {
-      print('Error loading bus stops: ${e.toString()}');
+      debugPrint('Error starting location tracking: $e');
     }
   }
-  
-  Future<void> _loadRouteUpdates() async {
-    if (_driver == null) return;
-    
-    try {
-      final updatesQuery = await _firestore.collection('route_updates')
-          .where('driverId', isEqualTo: _driver!.id)
-          .where('isRead', isEqualTo: false)
-          .orderBy('timestamp', descending: true)
-          .get();
-      
-      setState(() {
-        _routeUpdates = updatesQuery.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'message': data['message'] as String,
-            'timestamp': (data['timestamp'] as Timestamp).toDate(),
-            'isRead': data['isRead'] as bool,
-          };
-        }).toList();
-      });
-    } catch (e) {
-      print('Error loading route updates: ${e.toString()}');
-    }
-  }
-  
+
+
+
   Future<void> _toggleOnlineStatus(bool value) async {
     try {
-      final user = _auth.currentUser;
+      final user = AuthService.instance.currentUser;
       if (user != null) {
-        await _firestore.collection('users').doc(user.uid).update({
-          'workStatus': value ? WorkStatus.online.toString() : WorkStatus.offline.toString(),
-        });
-        
+        await FirestoreService.instance.updateDocument(
+          collection: 'users',
+          documentId: user.uid,
+          data: {
+            'workStatus':
+                value ? WorkStatus.online.name : WorkStatus.offline.name,
+          },
+        );
         setState(() {
           _isOnline = value;
         });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Status updated to ${value ? 'Online' : 'Offline'}'))
-        );
+
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text('Status updated to ${value ? 'Online' : 'Offline'}')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: ${e.toString()}'))
-      );
+          SnackBar(content: Text('Failed to update status: ${e.toString()}')));
     }
   }
-  
-  Future<void> _toggleShiftStatus(bool value) async {
-    final now = DateTime.now();
-    
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        if (value) {
-          // Starting shift
-          final shiftDoc = await _firestore.collection('shifts').add({
-            'driverId': user.uid,
-            'startTime': now,
-            'endTime': null,
-            'status': 'active',
-          });
-          
-          setState(() {
-            _isOnShift = true;
-            _shiftStartTime = now;
-            _shiftEndTime = null;
-          });
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Shift started successfully'))
-          );
-        } else {
-          // Ending shift
-          final shiftsQuery = await _firestore.collection('shifts')
-              .where('driverId', isEqualTo: user.uid)
-              .where('status', isEqualTo: 'active')
-              .limit(1)
-              .get();
-          
-          if (shiftsQuery.docs.isNotEmpty) {
-            await _firestore.collection('shifts').doc(shiftsQuery.docs.first.id).update({
-              'endTime': now,
-              'status': 'completed',
-              'duration': now.difference(_shiftStartTime!).inMinutes,
-            });
-            
-            setState(() {
-              _isOnShift = false;
-              _shiftEndTime = now;
-            });
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Shift ended successfully'))
-            );
-          }
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update shift: ${e.toString()}'))
-      );
-    }
-  }
+
   
   Future<void> _reportBusMalfunction() async {
     final TextEditingController _issueController = TextEditingController();
-    final TextEditingController _descriptionController = TextEditingController();
+    final TextEditingController _descriptionController =
+        TextEditingController();
     String _selectedSeverity = 'Medium';
-    
+
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -243,7 +225,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               DropdownButtonFormField<String>(
                 value: _selectedSeverity,
                 decoration: const InputDecoration(labelText: 'Severity'),
-                items: ['Low', 'Medium', 'High', 'Critical'].map((String value) {
+                items:
+                    ['Low', 'Medium', 'High', 'Critical'].map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Text(value),
@@ -264,34 +247,34 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           ElevatedButton(
             onPressed: () async {
               if (_issueController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter an issue title'))
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Please enter an issue title')));
                 return;
               }
-              
+
               try {
-                final user = _auth.currentUser;
+                final user = AuthService.instance.currentUser;
                 if (user != null && _assignedBus != null) {
-                  await _firestore.collection('bus_malfunctions').add({
-                    'busId': _assignedBus!.id,
-                    'driverId': user.uid,
-                    'issue': _issueController.text,
-                    'description': _descriptionController.text,
-                    'severity': _selectedSeverity,
-                    'status': 'reported',
-                    'timestamp': DateTime.now(),
-                  });
-                  
+                  await FirestoreService.instance.createDocumentWithData(
+                      collection: 'bus_malfunctions',
+                      data: {
+                        'busId': _assignedBus!.id,
+                        'driverId': user.uid,
+                        'issue': _issueController.text,
+                        'description': _descriptionController.text,
+                        'severity': _selectedSeverity,
+                        'status': 'reported',
+                        'timestamp': DateTime.now(),
+                      });
+
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Malfunction reported successfully'))
-                  );
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Malfunction reported successfully')));
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to report malfunction: ${e.toString()}'))
-                );
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content:
+                        Text('Failed to report malfunction: ${e.toString()}')));
               }
             },
             child: const Text('Submit'),
@@ -300,38 +283,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       ),
     );
   }
-  
-  Future<void> _markUpdateAsRead(String updateId) async {
-    try {
-      await _firestore.collection('route_updates').doc(updateId).update({
-        'isRead': true,
-      });
-      
-      setState(() {
-        _routeUpdates.removeWhere((update) => update['id'] == updateId);
-      });
-    } catch (e) {
-      print('Error marking update as read: ${e.toString()}');
-    }
-  }
-  
-  String _formatDateTime(DateTime dateTime) {
-    return DateFormat('MMM dd, yyyy - hh:mm a').format(dateTime);
-  }
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Driver Dashboard'),
-        backgroundColor: const Color(0xFF0072ff),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadDriverData,
-          ),
-        ],
+        backgroundColor: Colors.white,
+        title: const Text('Driver Dashboard',
+            style: TextStyle(color: Color(0xFF0072ff))),
       ),
       body: _driver == null
           ? const Center(child: CircularProgressIndicator())
@@ -369,101 +327,28 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               const SizedBox(height: 8),
                               SwitchListTile(
                                 title: const Text('Online Status'),
-                                subtitle: Text(_isOnline ? 'You are online and available' : 'You are offline'),
+                                subtitle: Text(_isOnline
+                                    ? 'You are online and available'
+                                    : 'You are offline'),
                                 value: _isOnline,
                                 activeColor: Colors.green,
                                 onChanged: _toggleOnlineStatus,
                               ),
-                              const Divider(),
-                              // Shift Management
-                              SwitchListTile(
-                                title: const Text('Shift Status'),
-                                subtitle: Text(_isOnShift 
-                                    ? 'Shift started at ${_formatDateTime(_shiftStartTime!)}' 
-                                    : 'Start your shift when ready'),
-                                value: _isOnShift,
-                                activeColor: Colors.green,
-                                onChanged: _toggleShiftStatus,
-                              ),
-                              if (_shiftStartTime != null && _shiftEndTime != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 16, top: 8),
-                                  child: Text(
-                                    'Last shift: ${_formatDateTime(_shiftStartTime!)} to ${_formatDateTime(_shiftEndTime!)}',
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                  ),
-                                ),
                             ],
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
-                      // Route Updates Card
-                      if (_routeUpdates.isNotEmpty)
-                        Card(
-                          elevation: 2,
-                          color: Colors.amber[50],
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.notifications_active, color: Colors.orange),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'Route Updates',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      '${_routeUpdates.length} new',
-                                      style: const TextStyle(color: Colors.orange),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                ..._routeUpdates.map((update) => Dismissible(
-                                  key: Key(update['id']),
-                                  background: Container(
-                                    color: Colors.green,
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 20),
-                                    child: const Icon(Icons.check, color: Colors.white),
-                                  ),
-                                  onDismissed: (_) => _markUpdateAsRead(update['id']),
-                                  child: Card(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    child: ListTile(
-                                      title: Text(update['message']),
-                                      subtitle: Text(_formatDateTime(update['timestamp'])),
-                                      trailing: IconButton(
-                                        icon: const Icon(Icons.check_circle_outline),
-                                        onPressed: () => _markUpdateAsRead(update['id']),
-                                      ),
-                                    ),
-                                  ),
-                                )).toList(),
-                              ],
-                            ),
-                          ),
-                        ),
-                      
-                      const SizedBox(height: 16),
-                      
+
+                  
                       // Current Route Card
                       Card(
                         elevation: 2,
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               const Text(
                                 'Current Route',
@@ -473,13 +358,84 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              if (_currentTrip != null)
+                              if (_pendingTrips.isNotEmpty && _currentTrip == null)
+                                Column(
+                                  children: [
+                                    const Text('Available Trips',
+                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 8),
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: _pendingTrips.length,
+                                      itemBuilder: (context, index) {
+                                        final trip = _pendingTrips[index];
+                                        return Card(
+                                          margin: const EdgeInsets.only(bottom: 8),
+                                          child: ListTile(
+                                            title: Text('Trip #${trip.id}'),
+                                            subtitle: Text(
+                                                'From: ${trip.stations?.first.name} to ${trip.stations?.last.name}'),
+                                            trailing: ElevatedButton(
+                                              onPressed: _isOnline
+                                                  ? () async {
+                                                      try {
+                                                        await FirestoreService
+                                                            .instance
+                                                            .updateDocument(
+                                                          collection: 'trips',
+                                                          documentId: trip.id!,
+                                                          data: {
+                                                            'status': 'active',
+                                                            'driverId':
+                                                                _driver?.id,
+                                                          },
+                                                        );
+                                                        setState(() {
+                                                          _currentTrip = trip;
+                                                          _pendingTrips
+                                                              .remove(trip);
+                                                          _startLocationTracking();
+                                                          _loadDriverData();
+                                                        });
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          const SnackBar(
+                                                              content: Text(
+                                                                  'Trip accepted successfully')),
+                                                        );
+                                                      } catch (e) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                              content: Text(
+                                                                  'Failed to accept trip: ${e.toString()}')),
+                                                        );
+                                                      }
+                                                    }
+                                                  : null,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xFF0072ff),
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              child: const Text('Accept'),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                )
+                              else if (_currentTrip != null)
                                 Column(
                                   children: [
                                     ListTile(
                                       title: const Text('Active Trip'),
-                                      subtitle: Text('From: (${_currentTrip!.startPoint.latitude}, ${_currentTrip!.startPoint.longitude})\nTo: (${_currentTrip!.endPoint.latitude}, ${_currentTrip!.endPoint.longitude})'),
-                                      trailing: const Icon(Icons.map),
+                                      subtitle: Text('From: ${_currentTrip!.stations?.first.name} to ${_currentTrip!.stations?.last.name} '),
+                                      trailing: const Icon(Icons.route,color: Color(0xFF0072ff),),
                                       onTap: () {
                                         // Navigate to map view
                                       },
@@ -487,44 +443,43 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                     const Divider(),
                                     const Text(
                                       'Bus Stops',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 8),
-                                    if (_busStops.isEmpty)
+                                    if (_currentTrip!.stations!.isEmpty)
                                       const Text('No stops assigned yet')
                                     else
-                                      ListView.builder(
-                                        shrinkWrap: true,
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        itemCount: _busStops.length,
-                                        itemBuilder: (context, index) {
-                                          final stop = _busStops[index];
-                                          return ListTile(
-                                            leading: CircleAvatar(
-                                              backgroundColor: Colors.blue,
-                                              child: Text('${index + 1}'),
-                                            ),
-                                            title: Text(stop['name']),
-                                            trailing: Container(
-                                              padding: const EdgeInsets.all(8),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue[100],
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(Icons.people, size: 16),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '${stop['studentCount']}',
-                                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                      SizedBox(
+                                        height: 80,
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            children: List.generate(
+                                              _currentTrip!.stations?.length ?? 0,
+                                              (index) {
+                                                final station = _currentTrip!.stations?[index];
+                                                return Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      CircleAvatar(
+                                                        backgroundColor: Colors.blue.shade100,
+                                                        child: Text('${index + 1}'),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        station?.name ?? "",
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
-                                              ),
+                                                );
+                                              },
                                             ),
-                                          );
-                                        },
+                                          ),
+                                        ),
                                       ),
                                   ],
                                 )
@@ -532,15 +487,71 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                 const ListTile(
                                   leading: Icon(Icons.info),
                                   title: Text('No active route'),
-                                  subtitle: Text('Wait for admin to assign a route'),
+                                  subtitle:
+                                      Text('Wait for admin to assign a route'),
                                 ),
+                                if (_currentTrip != null && _currentTrip!.status == 'active')
+                                  Column(crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green[100],
+                                          borderRadius: BorderRadius.circular(8.0),
+                                        ),
+                                        child: const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.check_circle, color: Colors.green),
+                                            SizedBox(width: 8),
+                                            Text('Trip Active', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
+                                      ),
+                                       const SizedBox(height: 12),
+                                        ElevatedButton(
+                                          onPressed: () async {
+                                            try {
+                                              await FirestoreService.instance.updateDocument(
+                                                collection: 'trips',
+                                                documentId: _currentTrip!.id!,
+                                                data: {'status': 'finished'},
+                                              );
+                                              _positionStreamSubscription?.cancel();
+                                              setState(() {
+                                                _currentTrip = null;
+                                                _assignedBus = null;
+                                                _positionStreamSubscription?.cancel();
+
+                                              });
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Trip finished successfully')),
+                                                );
+                                              }
+                                            } catch (e) {
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Error finishing trip: ${e.toString()}')),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: const Text('Finish Trip'),
+                                        ),
+                                    ],
+                                  )
                             ],
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Statistics Card
                       Card(
                         elevation: 2,
@@ -562,16 +573,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                   Expanded(
                                     child: Card(
                                       color: Colors.blue[50],
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16.0),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(16.0),
                                         child: Column(
                                           children: [
-                                            const Icon(Icons.people, size: 32, color: Colors.blue),
-                                            const SizedBox(height: 8),
-                                            const Text('Total Students'),
+                                            Icon(Icons.people,
+                                                size: 32, color: Colors.blue),
+                                            SizedBox(height: 8),
+                                            Text('Total Students'),
                                             Text(
-                                              '${_busStops.fold(0, (sum, stop) => sum + (stop['studentCount'] as int))}',
-                                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                              '0',
+                                              style: TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold),
                                             ),
                                           ],
                                         ),
@@ -585,12 +599,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                         padding: EdgeInsets.all(16.0),
                                         child: Column(
                                           children: [
-                                            Icon(Icons.route, size: 32, color: Colors.green),
+                                            Icon(Icons.route,
+                                                size: 32, color: Colors.green),
                                             SizedBox(height: 8),
                                             Text('Trips Completed'),
                                             Text(
                                               '0',
-                                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold),
                                             ),
                                           ],
                                         ),
@@ -603,14 +620,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Bus Malfunction Reporting
                       Card(
                         elevation: 2,
                         child: Padding(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: const EdgeInsets.all(10.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -624,8 +641,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               const SizedBox(height: 8),
                               if (_assignedBus != null)
                                 ListTile(
-                                  title: Text('Bus #${_assignedBus!.registrationNumber}'),
-                                  subtitle: Text('Capacity: ${_assignedBus!.capacity} seats'),
+                                  title:
+                                      Text('Bus #${_assignedBus!.busNumber}'),
+                                  subtitle: Text(
+                                      'Capacity: ${_assignedBus!.capacity} seats'),
                                   trailing: ElevatedButton.icon(
                                     icon: const Icon(Icons.report_problem),
                                     label: const Text('Report Issue'),
@@ -640,7 +659,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                 const ListTile(
                                   leading: Icon(Icons.directions_bus),
                                   title: Text('No bus assigned'),
-                                  subtitle: Text('Contact admin for bus assignment'),
+                                  subtitle:
+                                      Text('Contact admin for bus assignment'),
                                 ),
                             ],
                           ),
@@ -651,7 +671,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ),
               ),
             ),
-          );
-        
+    );
   }
-  }
+}

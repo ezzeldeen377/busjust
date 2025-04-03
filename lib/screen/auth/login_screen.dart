@@ -64,22 +64,36 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 40),
 
-              // حقل الإدخال للبريد الإلكتروني
+              const Text(
+                'Email Address',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
               _buildTextField(
                 controller: emailController,
                 icon: Icons.email,
-                label: 'Email',
                 hint: 'Enter your email',
                 obscureText: false,
                 color: Colors.blueAccent,
               ),
               const SizedBox(height: 20),
 
-              // حقل الإدخال لكلمة السر
+              const Text(
+                'Password',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
               _buildTextField(
                 controller: passwordController,
                 icon: Icons.lock,
-                label: 'Password',
                 hint: 'Enter your password',
                 obscureText: true,
                 color: Colors.blueAccent,
@@ -89,11 +103,11 @@ class _LoginScreenState extends State<LoginScreen> {
               // زر تسجيل الدخول
               _buildLoginButton(),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
               _buildForgotPasswordButton(),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
               // Don't have an account link
               TextButton(
@@ -120,13 +134,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildTextField({
     required TextEditingController controller,
     required IconData icon,
-    required String label,
     required String hint,
     required bool obscureText,
     required Color color,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
@@ -144,7 +157,6 @@ class _LoginScreenState extends State<LoginScreen> {
         style: const TextStyle(fontSize: 16, color: Colors.black87),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-          labelText: label,
           labelStyle: TextStyle(color: color.withOpacity(0.8)),
           hintText: hint,
           hintStyle: TextStyle(color: Colors.grey[400]),

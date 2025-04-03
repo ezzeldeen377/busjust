@@ -23,7 +23,7 @@ class Driver extends UserModel {
     final map = super.toMap();
     map.addAll({
       'assignedBus': assignedBus,
-      'workStatus': workStatus.toString(),
+      'workStatus': workStatus?.name,
       'licenseNumber': licenseNumber,
     });
     return map;
@@ -37,7 +37,7 @@ class Driver extends UserModel {
       phoneNumber: map['phoneNumber'] as String?,
       assignedBus: map['assignedBus'] as String?,
       workStatus: WorkStatus.values.firstWhere(
-        (status) => status.toString() == map['workStatus'],
+        (status) => status.name == map['workStatus'],
         orElse: () => WorkStatus.offline,
       ),
       licenseNumber: map['licenseNumber'] as String?,

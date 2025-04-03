@@ -119,11 +119,11 @@ class StudentService {
   }
 
   // Get available routes for a student
-  Future<List<Map<String, dynamic>>> getAvailableRoutes(String studentId) async {
+  Future<List<Map<String, dynamic>>> getAvailabletTrips() async {
     try {
       final querySnapshot = await _firestore
-          .collection('routes')
-          .where('isActive', isEqualTo: true)
+          .collection('trips')
+          .where('status', isEqualTo: "active")
           .get();
       
       return querySnapshot.docs
@@ -137,7 +137,7 @@ class StudentService {
   // Select a route for a student
   Future<void> selectRoute(String studentId, String routeId) async {
     try {
-      await _firestore.collection('students').doc(studentId).update({
+      await _firestore.collection('users').doc(studentId).update({
         'selectedRouteId': routeId,
         'lastUpdated': Timestamp.now()
       });

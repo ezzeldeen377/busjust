@@ -1,20 +1,23 @@
 import 'dart:async';
-import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+import 'package:bus_just/models/trip.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:bus_just/services/bus_tracking_service.dart';
-import 'package:bus_just/models/bus_stop.dart';
+import 'package:geolocator/geolocator.dart';
 
 class EnhancedMapScreen extends StatefulWidget {
   final LatLng? initialBusLocation;
-  final String? tripId;
+  final String? busId;
+  final List<Station> stations;
 
   const EnhancedMapScreen({
-    super.key, 
+    super.key,
     this.initialBusLocation,
-    this.tripId,
+    this.busId,
+    required this.stations,
   });
 
   @override
@@ -23,458 +26,325 @@ class EnhancedMapScreen extends StatefulWidget {
 
 class _EnhancedMapScreenState extends State<EnhancedMapScreen> {
   GoogleMapController? _mapController;
-  Position? _currentPosition;
   final Set<Marker> _markers = {};
-  final Set<Polyline> _polylines = {};
-  bool _isLoading = true;
-  LatLng? _busLocation;
-  List<BusStop>? _busStops;
-  StreamSubscription<LatLng>? _busLocationSubscription;
-  final BusTrackingService _busTrackingService = BusTrackingService.instance;
-  
-  // UI state
-  bool _showBusInfo = false;
-  String _estimatedArrival = 'Calculating...';
+  final BusTrackingService _busTrackingService = BusTrackingService();
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(24.7136, 46.6753), // Default to Riyadh, Saudi Arabia
     zoom: 14.0,
   );
+  late StreamSubscription<LatLng> _locationSubscription;
+  LatLng? _currentUserLocation;
+  bool _isLoadingLocation = false;
+  StreamSubscription<Position>? _positionStreamSubscription;
+  BitmapDescriptor? _busIcon;
+  BitmapDescriptor? _stationIcon;
 
   @override
   void initState() {
     super.initState();
-    _busLocation = widget.initialBusLocation;
-    _getCurrentLocation();
-    if (widget.tripId != null) {
-      _loadBusStops();
-      _startBusTracking();
+    _loadBusIcon();
+    _loadStationIcon();
+    if (widget.initialBusLocation != null) {
+      _updateBusMarker(widget.initialBusLocation!);
     }
+    if (widget.busId != null) {
+      _startBusLocationTracking();
+    }
+    _getCurrentLocation();
+    _addStationMarkers();
   }
 
-  Future<void> _getCurrentLocation() async {
+  Future<void> _loadStationIcon() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
+      final Uint8List markerIcon =
+          await _getBytesFromAsset('assets/images/station_icon.png', 80);
+      _stationIcon = BitmapDescriptor.fromBytes(markerIcon);
+    } catch (e) {
+      // Fallback to default icon if loading fails
+      _stationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load station icon: $e')),
+        );
       }
+    }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          setState(() {
-            _isLoading = false;
-          });
-          return;
-        }
-      }
+    // Add station markers after icon is loaded
+    _addStationMarkers();
+  }
 
-      if (permission == LocationPermission.deniedForever) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
+  void _addStationMarkers() {
+    if (widget.stations.isEmpty) return;
 
-      Position position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = position;
-        _isLoading = false;
-        
-        // Add user location marker
+    setState(() {
+      for (var station in widget.stations) {
+        // Create a marker for each station
         _markers.add(
           Marker(
-            markerId: const MarkerId('user_location'),
-            position: LatLng(position.latitude, position.longitude),
-            infoWindow: const InfoWindow(title: 'Your Location'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+            markerId: MarkerId(station.name ?? ""),
+            position: LatLng(station.point!.latitude, station.point!.longitude),
+            infoWindow: InfoWindow(
+              title: station.name,
+              snippet: station.name,
+            ),
+            icon: _stationIcon ??
+                BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueGreen),
           ),
         );
-      });
-
-      // If no bus location is provided, center on user's location
-      if (_busLocation == null) {
-        _mapController?.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: LatLng(position.latitude, position.longitude),
-              zoom: 15.0,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error getting location: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _loadBusStops() async {
-    try {
-      if (widget.tripId == null) return;
-      
-      final stops = await _busTrackingService.getBusStopsForTrip(widget.tripId!);
-      setState(() {
-        _busStops = stops;
-        
-        // Add bus stop markers
-        for (int i = 0; i < stops.length; i++) {
-          final stop = stops[i];
-          final location = LatLng(
-            stop.location.latitude,
-            stop.location.longitude,
-          );
-          
-          _markers.add(
-            Marker(
-              markerId: MarkerId('stop_${stop.id}'),
-              position: location,
-              infoWindow: InfoWindow(
-                title: stop.name,
-                snippet: 'Stop ${i + 1} of ${stops.length}',
-              ),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                i == 0 ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueYellow
-              ),
-            ),
-          );
-        }
-        
-        // Create route polyline if we have stops
-        if (stops.length > 1) {
-          final List<LatLng> polylinePoints = stops.map((stop) => 
-            LatLng(stop.location.latitude, stop.location.longitude)
-          ).toList();
-          
-          _polylines.add(
-            Polyline(
-              polylineId: const PolylineId('bus_route'),
-              points: polylinePoints,
-              color: Colors.blue,
-              width: 5,
-            ),
-          );
-        }
-      });
-      
-      // Calculate ETA to next stop
-      if (stops.isNotEmpty && _busLocation != null) {
-        _updateEstimatedArrival();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading bus stops: $e')),
-        );
-      }
-    }
-  }
-
-  void _startBusTracking() {
-    if (widget.tripId == null) return;
-    
-    // Start with initial location if provided
-    if (widget.initialBusLocation != null) {
-      setState(() {
-        _busLocation = widget.initialBusLocation;
-        _updateBusMarker();
-        _centerMapOnBus();
-      });
-    }
-    
-    // Subscribe to real-time updates
-    _busLocationSubscription = _busTrackingService
-        .getBusLocationStream(widget.tripId!)
-        .listen((location) {
-          setState(() {
-            _busLocation = location;
-            _updateBusMarker();
-            _updateEstimatedArrival();
-          });
-        });
-  }
-
-  void _updateBusMarker() {
-    if (_busLocation == null) return;
-    
-    // Remove old bus marker if exists
-    _markers.removeWhere((marker) => marker.markerId.value == 'bus');
-    
-    // Add updated bus marker
-    _markers.add(
-      Marker(
-        markerId: const MarkerId('bus'),
-        position: _busLocation!,
-        infoWindow: const InfoWindow(title: 'Bus Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        onTap: () {
-          setState(() {
-            _showBusInfo = true;
-          });
-        },
-      ),
-    );
-  }
-
-  void _centerMapOnBus() {
-    if (_busLocation == null || _mapController == null) return;
-    
-    _mapController!.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: _busLocation!,
-          zoom: 15.0,
-        ),
-      ),
-    );
-  }
-
-  void _updateEstimatedArrival() {
-    if (_busLocation == null || _busStops == null || _busStops!.isEmpty) return;
-    
-    // Find the next stop
-    final nextStop = _busStops!.first;
-    
-    // Calculate distance (simplified)
-    final double distanceInKm = _calculateDistance(
-      _busLocation!.latitude,
-      _busLocation!.longitude,
-      nextStop.location.latitude,
-      nextStop.location.longitude,
-    );
-    
-    // Assume average speed of 30 km/h
-    final double averageSpeed = 30.0; // km/h
-    
-    // Calculate time in minutes
-    final int timeInMinutes = (distanceInKm / averageSpeed * 60).round();
-    
-    setState(() {
-      if (timeInMinutes < 1) {
-        _estimatedArrival = 'Arriving now';
-      } else {
-        _estimatedArrival = '$timeInMinutes minutes';
       }
     });
   }
 
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    // Simplified distance calculation using Euclidean distance
-    // In a real app, you would use the Haversine formula or a mapping service API
-    const double earthRadius = 6371; // km
-    final double dLat = _toRadians(lat2 - lat1);
-    final double dLon = _toRadians(lon2 - lon1);
-    
-    final double a = 
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.sin(dLon / 2) * math.sin(dLon / 2) * math.cos(_toRadians(lat1)) * math.cos(_toRadians(lat2));
-    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
+  Future<void> _loadBusIcon() async {
+    try {
+      final Uint8List markerIcon =
+          await _getBytesFromAsset('assets/images/bus_icon.png', 100);
+      _busIcon = BitmapDescriptor.fromBytes(markerIcon);
+    } catch (e) {
+      // Fallback to default icon if loading fails
+      _busIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load bus icon: $e')),
+        );
+      }
+    }
+
+    // Update existing bus marker if it exists
+    if (widget.initialBusLocation != null) {
+      _updateBusMarker(widget.initialBusLocation!);
+    }
   }
 
-  double _toRadians(double degree) {
-    return degree * (math.pi / 180);
+  Future<Uint8List> _getBytesFromAsset(String path, int width) async {
+    ByteData data = await rootBundle.load(path);
+    ui.Codec codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetWidth: width,
+    );
+    ui.FrameInfo fi = await codec.getNextFrame();
+    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!
+        .buffer
+        .asUint8List();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+    });
+
+    // Check if location services are enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Location services are not enabled
+      setState(() {
+        _isLoadingLocation = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location services are disabled')),
+        );
+      }
+      return;
+    }
+
+    // Check location permission
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        // Permissions are denied
+        setState(() {
+          _isLoadingLocation = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied')),
+          );
+        }
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Permissions are permanently denied
+      setState(() {
+        _isLoadingLocation = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Location permissions are permanently denied')),
+        );
+      }
+      return;
+    }
+
+    // Get current position
+    try {
+      Position position = await Geolocator.getCurrentPosition();
+      _updateUserLocationMarker(position);
+
+      // Listen to position updates
+      _positionStreamSubscription = Geolocator.getPositionStream().listen(
+        _updateUserLocationMarker,
+        onError: (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error getting location updates: $e')),
+            );
+          }
+        },
+      );
+
+      setState(() {
+        _isLoadingLocation = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingLocation = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error getting current location: $e')),
+        );
+      }
+    }
+  }
+
+  void _updateUserLocationMarker(Position position) {
+    final userLocation = LatLng(position.latitude, position.longitude);
+    setState(() {
+      _currentUserLocation = userLocation;
+
+      // We're no longer adding a marker for the user location
+      // Just storing the location for centering purposes
+    });
+  }
+
+  void _centerOnUserLocation() {
+    if (_currentUserLocation != null) {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_currentUserLocation!, 15),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to get your current location')),
+      );
+    }
+  }
+
+  void _startBusLocationTracking() {
+    _locationSubscription =
+        _busTrackingService.getBusLocationStream(widget.busId!).listen(
+      (LatLng location) {
+        if (mounted) {
+          _updateBusMarker(location);
+          _animateToLocation(location);
+        }
+      },
+      onError: (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error tracking bus: $error')),
+          );
+        }
+      },
+    );
+  }
+
+  void _updateBusMarker(LatLng location) {
+    setState(() {
+      // Remove old bus marker if exists
+      _markers.removeWhere((marker) => marker.markerId.value == 'bus');
+
+      // Add updated bus marker with custom icon
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('bus'),
+          position: location,
+          infoWindow: const InfoWindow(title: 'Bus Location'),
+          icon: _busIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        ),
+      );
+    });
+  }
+
+  void _animateToLocation(LatLng location) {
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLng(location),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bus Tracker'),
+        title: const Text('Bus Location'),
         backgroundColor: const Color(0xFF0072ff),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              if (widget.tripId != null) {
-                _loadBusStops();
-                _centerMapOnBus();
-              } else {
-                _getCurrentLocation();
-              }
-            },
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            onPressed: _currentPosition != null
-                ? () {
-                    _mapController?.animateCamera(
-                      CameraUpdate.newCameraPosition(
-                        CameraPosition(
-                          target: LatLng(
-                            _currentPosition!.latitude,
-                            _currentPosition!.longitude,
-                          ),
-                          zoom: 15.0,
-                        ),
-                      ),
-                    );
-                  }
-                : null,
-            tooltip: 'My Location',
-          ),
-        ],
+        foregroundColor: Colors.white,
       ),
       body: Stack(
         children: [
-          // Map
-          _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF0072ff)))
-              : GoogleMap(
-                  initialCameraPosition: _busLocation != null
-                      ? CameraPosition(
-                          target: _busLocation!,
-                          zoom: 15.0,
-                        )
-                      : _currentPosition != null
-                          ? CameraPosition(
-                              target: LatLng(
-                                _currentPosition!.latitude,
-                                _currentPosition!.longitude,
-                              ),
-                              zoom: 15.0,
-                            )
-                          : _initialPosition,
-                  markers: _markers,
-                  polylines: _polylines,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: true,
-                  onMapCreated: (GoogleMapController controller) {
-                    _mapController = controller;
-                    if (_busLocation != null) {
-                      _centerMapOnBus();
-                    }
-                  },
+          GoogleMap(
+            initialCameraPosition: widget.initialBusLocation != null
+                ? CameraPosition(
+                    target: widget.initialBusLocation!,
+                    zoom: 15.0,
+                  )
+                : _initialPosition,
+            markers: _markers,
+            zoomControlsEnabled: true,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            onMapCreated: (GoogleMapController controller) {
+              _mapController = controller;
+            },
+          ),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: Column(
+              children: [
+                FloatingActionButton(
+                  heroTag: 'centerOnUser',
+                  onPressed: _centerOnUserLocation,
+                  backgroundColor: const Color(0xFF0072ff),
+                  child: _isLoadingLocation
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Icon(Icons.my_location, color: Colors.white),
                 ),
-          
-          // Bus info panel
-          if (_showBusInfo && _busLocation != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.directions_bus, color: Color(0xFF0072ff)),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Bus Information',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            setState(() {
-                              _showBusInfo = false;
-                            });
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                    const Divider(),
-                    if (_busStops != null && _busStops!.isNotEmpty) ...[  
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, color: Colors.green, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Next Stop: ${_busStops!.first.name}',
-                              style: const TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.access_time, color: Colors.orange, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Estimated arrival: $_estimatedArrival',
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _centerMapOnBus,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0072ff),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text('Center on Bus'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                const SizedBox(height: 8),
+                if (widget.busId != null)
+                  FloatingActionButton(
+                    heroTag: 'centerOnBus',
+                    onPressed: () {
+                      if (widget.initialBusLocation != null) {
+                        _animateToLocation(widget.initialBusLocation!);
+                      }
+                    },
+                    backgroundColor: const Color(0xFF0072ff),
+                    child:
+                        const Icon(Icons.directions_bus, color: Colors.white),
+                  ),
+              ],
             ),
-          
-          // Show bus info button
-          if (!_showBusInfo && _busLocation != null)
-            Positioned(
-              bottom: 16,
-              right: 16,
-              child: FloatingActionButton(
-                onPressed: () {
-                  setState(() {
-                    _showBusInfo = true;
-                  });
-                },
-                backgroundColor: const Color(0xFF0072ff),
-                child: const Icon(Icons.info_outline),
-              ),
-            ),
+          ),
         ],
-  ) );
-  }
-  @override
-void dispose() {
-  _mapController?.dispose();
-  _busLocationSubscription?.cancel();
-  super.dispose();
-}
+      ),
+    );
   }
 
+  @override
+  void dispose() {
+    _locationSubscription.cancel();
+    _positionStreamSubscription?.cancel();
+    _mapController?.dispose();
+    super.dispose();
+  }
+}

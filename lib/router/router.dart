@@ -1,10 +1,11 @@
+import 'package:bus_just/models/trip.dart';
 import 'package:bus_just/models/user.dart';
 import 'package:bus_just/models/student.dart';
 import 'package:bus_just/screen/auth/control_screen.dart';
 import 'package:bus_just/screen/auth/login_screen.dart';
 import 'package:bus_just/screen/auth/signup_screen.dart';
 import 'package:bus_just/screen/home/home_screen.dart';
-import 'package:bus_just/screen/home/enhanced_student_home_screen.dart';
+import 'package:bus_just/screen/home/student_home_screen.dart';
 import 'package:bus_just/screen/map/map_screen.dart';
 import 'package:bus_just/screen/map/enhanced_map_screen.dart';
 import 'package:bus_just/screen/splash_screen.dart';
@@ -36,10 +37,12 @@ class AppRouter {
         if (args != null && args is Map<String, dynamic>) {
           final busLocation = args['busLocation'] as LatLng?;
           final tripId = args['tripId'] as String?;
+          final stations=args['stations'] as List<Station>;
           return MaterialPageRoute(
             builder: (_) => EnhancedMapScreen(
               initialBusLocation: busLocation,
-              tripId: tripId,
+              busId: tripId,
+              stations: stations,
             ),
           );
         }

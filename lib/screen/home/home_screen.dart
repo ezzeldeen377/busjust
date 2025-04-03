@@ -1,7 +1,7 @@
 import 'package:bus_just/models/user.dart';
 import 'package:bus_just/models/student.dart';
 import 'package:bus_just/router/routes.dart';
-import 'package:bus_just/screen/home/enhanced_student_home_screen.dart';
+import 'package:bus_just/screen/home/student_home_screen.dart';
 import 'package:bus_just/screen/home/admin_home_screen.dart';
 import 'package:bus_just/screen/home/driver_home_screen.dart';
 import 'package:bus_just/screen/home/student_home_screen.dart';
@@ -29,12 +29,6 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Bus Just', style: TextStyle(color: Colors.white),),
         centerTitle: true,
         backgroundColor: const Color(0xFF0072ff),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout,color: Colors.white,),
-            onPressed: _handleLogout,
-          ),
-        ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -92,7 +86,15 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
               onTap: () {
-                context.pop();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _handleLogout();
               },
             ),
           ],
@@ -114,7 +116,7 @@ if (widget.user.role ==UserRole.student ) {
     phoneNumber: widget.user.phoneNumber,
     profilePicture: widget.user.profilePicture,
   );
-  return EnhancedStudentHomeScreen(student: student);
+  return StudentHomeScreen(student: student);
 
 } else if (widget.user.role ==UserRole.driver) {
 

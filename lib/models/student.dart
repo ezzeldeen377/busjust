@@ -1,8 +1,11 @@
 import 'package:bus_just/models/user.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Student extends UserModel {
   final String universityId;
   final String? preferredBusRoute;
+  final String? selectedRouteId;
+  final DateTime? lastUpdated;
 
   Student({
     required super.id,
@@ -12,6 +15,8 @@ class Student extends UserModel {
     super.phoneNumber,
     super.profilePicture,
     this.preferredBusRoute,
+    this.selectedRouteId,
+    this.lastUpdated,
   }) : super(role: UserRole.student);
 
   @override
@@ -20,6 +25,8 @@ class Student extends UserModel {
     map.addAll({
       'universityId': universityId,
       'preferredBusRoute': preferredBusRoute,
+      'selectedRouteId': selectedRouteId,
+      'lastUpdated': lastUpdated != null ? Timestamp.fromDate(lastUpdated!) : null,
     });
     return map;
   }
@@ -33,6 +40,8 @@ class Student extends UserModel {
       phoneNumber: map['phoneNumber'] as String?,
       profilePicture: map['profilePicture'] as String?,
       preferredBusRoute: map['preferredBusRoute'] as String?,
+      selectedRouteId: map['selectedRouteId'] as String?,
+      lastUpdated: map['lastUpdated'] != null ? (map['lastUpdated'] as Timestamp).toDate() : null,
     );
   }
 }

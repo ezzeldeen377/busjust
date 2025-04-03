@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bus_just/models/trip.dart';
 import 'package:bus_just/models/bus_stop.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+
 
 class BusTrackingService {
   static final BusTrackingService instance = BusTrackingService._internal();
@@ -22,20 +24,20 @@ class BusTrackingService {
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
-              .map((doc) => Trip.fromMap(doc.data() as Map<String, dynamic>))
+              .map((doc) => Trip.fromMap(doc.data()))
               .toList();
         });
   }
 
   // Get real-time bus location for a specific trip
-  Stream<LatLng> getBusLocationStream(String tripId) {
+  Stream<LatLng> getBusLocationStream(String busId) {
     return _firestore
-        .collection('trips')
-        .doc(tripId)
+        .collection('buses')
+        .doc("XLcbe8LaSeEaYAu7l4ZB")
         .snapshots()
         .map((snapshot) {
           if (!snapshot.exists) {
-            throw Exception('Trip not found');
+            throw Exception('Bus not found');
           }
           
           final data = snapshot.data() as Map<String, dynamic>;
@@ -62,47 +64,31 @@ class BusTrackingService {
   }
 
   // Calculate estimated arrival time based on current location and speed
-  Future<DateTime?> getEstimatedArrivalTime(String tripId, String stopId) async {
+  Future<DateTime?> getEstimatedArrivalTime(GeoPoint currentLocation, GeoPoint stopLocation) async {
     try {
-      // This is a simplified calculation. In a real app, you would use
-      // distance and average speed to calculate a more accurate ETA
-      final tripDoc = await _firestore.collection('trips').doc(tripId).get();
-      final stopDoc = await _firestore.collection('busStops').doc(stopId).get();
-      
-      if (!tripDoc.exists || !stopDoc.exists) {
-        return null;
-      }
-      
-      final tripData = tripDoc.data() as Map<String, dynamic>;
-      final stopData = stopDoc.data() as Map<String, dynamic>;
-      
-      // Get current location and stop location
-      final GeoPoint currentLocation = tripData['currentLocation'] as GeoPoint;
-      final GeoPoint stopLocation = stopData['location'] as GeoPoint;
-      
       // Calculate distance (simplified)
       final double lat1 = currentLocation.latitude;
       final double lon1 = currentLocation.longitude;
       final double lat2 = stopLocation.latitude;
       final double lon2 = stopLocation.longitude;
-      
+
       // Simplified distance calculation using Euclidean distance
       // In a real app, you would use the Haversine formula or a mapping service API
-      final double distance = _calculateDistance(lat1, lon1, lat2, lon2);
-      
+      final double distance = Geolocator.distanceBetween(lat1, lon1, lat2, lon2)/1000;
+      print(distance);
       // Assume average speed of 30 km/h
       final double averageSpeed = 30.0; // km/h
       
       // Calculate time in hours
       final double timeInHours = distance / averageSpeed;
-      
+
       // Convert to minutes
       final int timeInMinutes = (timeInHours * 60).round();
-      
+      print(timeInMinutes);
       // Calculate estimated arrival time
       final DateTime now = DateTime.now();
       final DateTime estimatedArrival = now.add(Duration(minutes: timeInMinutes));
-      
+
       return estimatedArrival;
     } catch (e) {
       throw Exception('Failed to calculate ETA: ${e.toString()}');

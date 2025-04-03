@@ -49,7 +49,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     height: 100,
                     width: 100,
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 10),
                   const Text(
                     'Create Account',
                     textAlign: TextAlign.center,
@@ -68,36 +68,61 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
+              const Padding(
+                padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                child: Text(
+                  'Username',
+                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
               _buildTextField(
                 controller: usernameController,
                 icon: Icons.person,
-                label: 'Username',
                 hint: 'Enter your username',
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                child: Text(
+                  'Email Address',
+                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
               _buildTextField(
                 controller: emailController,
                 icon: Icons.email,
-                label: 'Email',
                 hint: 'Enter your email',
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                child: Text(
+                  'Password',
+                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
               _buildTextField(
                 controller: passwordController,
                 icon: Icons.lock,
-                label: 'Password',
                 hint: 'Enter your password',
                 obscureText: true,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                child: Text(
+                  'Confirm Password',
+                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
               _buildTextField(
                 controller: confirmPasswordController,
                 icon: Icons.lock_outline,
-                label: 'Confirm Password',
                 hint: 'Confirm your password',
                 obscureText: true,
               ),
+              const SizedBox(height: 10),
               if (errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
@@ -106,9 +131,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     style: TextStyle(color: Colors.red[100], fontSize: 14),
                   ),
                 ),
-              const SizedBox(height: 30),
               _buildSignUpButton(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               _buildLoginLink(),
             ],
           ),
@@ -120,7 +144,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildTextField({
     required TextEditingController controller,
     required IconData icon,
-    required String label,
     required String hint,
     bool obscureText = false,
   }) {
@@ -143,8 +166,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         style: const TextStyle(fontSize: 16, color: Colors.black87),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-          labelText: label,
-          labelStyle: TextStyle(color: Colors.blue[700]?.withOpacity(0.8)),
+
           hintText: hint,
           hintStyle: TextStyle(color: Colors.grey[400]),
           prefixIcon: Icon(icon, color: Colors.blue[700], size: 22),
