@@ -12,6 +12,8 @@ class Trip {
   final List<Station>? stations;
   final String? status;
   final DateTime? createdAt;
+  final double? distance;
+  final int? estimatedTimeMinutes;
 
   Trip({
      this.id,
@@ -19,7 +21,9 @@ class Trip {
      this.busId,
      this.stations,
      this.status,
-    this.createdAt,
+     this.createdAt,
+     this.distance,
+     this.estimatedTimeMinutes,
   });
 
   factory Trip.fromMap(Map<String, dynamic> map) {
@@ -32,6 +36,8 @@ class Trip {
           : null,
       status: map['status'] as String,
       createdAt: map['createdAt'] != null ? (map['createdAt'] as Timestamp).toDate() : null,
+      distance: map['distance'] != null ? (map['distance'] as num).toDouble() : null,
+      estimatedTimeMinutes: map['estimatedTimeMinutes'] as int?,
     );
   }
 
@@ -43,6 +49,8 @@ class Trip {
       'stations': stations?.map((x) => x.toMap()).toList(),
       'status': status,
       'createdAt': createdAt,
+      'distance': distance,
+      'estimatedTimeMinutes': estimatedTimeMinutes,
     };
   }
 
@@ -54,6 +62,8 @@ class Trip {
     String? status,
     DateTime? createdAt,
     bool? isActive,
+    double? distance,
+    int? estimatedTimeMinutes,
   }) {
     return Trip(
       id: id ?? this.id,
@@ -62,6 +72,8 @@ class Trip {
       stations: stations ?? this.stations,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      distance: distance ?? this.distance,
+      estimatedTimeMinutes: estimatedTimeMinutes ?? this.estimatedTimeMinutes,
     );
   }
 
@@ -71,7 +83,7 @@ class Trip {
 
   @override
   String toString() {
-    return 'Trip(id: $id, driverId: $driverId, busId: $busId, stations: $stations, status: $status, createdAt: $createdAt)';
+    return 'Trip(id: $id, driverId: $driverId, busId: $busId, stations: $stations, status: $status, createdAt: $createdAt, distance: $distance, estimatedTimeMinutes: $estimatedTimeMinutes)';
   }
 
   @override
@@ -84,7 +96,9 @@ class Trip {
       other.busId == busId &&
       listEquals(other.stations, stations) &&
       other.status == status &&
-      other.createdAt == createdAt ;
+      other.createdAt == createdAt &&
+      other.distance == distance &&
+      other.estimatedTimeMinutes == estimatedTimeMinutes;
   }
 
   @override
@@ -94,7 +108,10 @@ class Trip {
       busId.hashCode ^
       stations.hashCode ^
       status.hashCode ^
-      createdAt.hashCode ;  }
+      createdAt.hashCode ^
+      distance.hashCode ^
+      estimatedTimeMinutes.hashCode;
+  }
 }
 extension LatLngExtension on LatLng {
   GeoPoint toGeoPoint() {

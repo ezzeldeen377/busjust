@@ -6,6 +6,7 @@ import 'package:bus_just/screen/auth/login_screen.dart';
 import 'package:bus_just/screen/auth/signup_screen.dart';
 import 'package:bus_just/screen/home/home_screen.dart';
 import 'package:bus_just/screen/home/student_home_screen.dart';
+import 'package:bus_just/screen/home/trip_history_screen.dart';
 import 'package:bus_just/screen/map/map_screen.dart';
 import 'package:bus_just/screen/map/enhanced_map_screen.dart';
 import 'package:bus_just/screen/splash_screen.dart';
@@ -47,6 +48,10 @@ class AppRouter {
           );
         }
         return MaterialPageRoute(builder: (_) => const MapScreen());
+        
+      case Routes.tripHistory:
+        final userData = settings.arguments as UserModel;
+        return MaterialPageRoute(builder: (_) => TripHistoryScreen(user: userData));
       
       default:
 

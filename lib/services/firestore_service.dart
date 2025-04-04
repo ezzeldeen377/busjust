@@ -1,4 +1,5 @@
 import 'package:bus_just/models/admin.dart';
+import 'package:bus_just/models/bus.dart';
 import 'package:bus_just/models/driver.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bus_just/models/user.dart';
@@ -167,6 +168,21 @@ class FirestoreService {
       await _firestore.collection(collection).doc(documentId).delete();
     } catch (e) {
       throw Exception('Failed to delete document: ${e.toString()}');
+    }
+  }
+  
+  // Get bus data from Firestore by ID
+  Future<Bus?> getBusData(String busId) async {
+    try {
+      DocumentSnapshot doc =
+          await _firestore.collection('buses').doc(busId).get();
+      if (doc.exists && doc.data() != null) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return Bus.fromMap(data);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Failed to get bus data: ${e.toString()}');
     }
   }
 }

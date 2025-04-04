@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       drawer: Drawer(
         child: ListView(
+
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
@@ -56,7 +57,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    widget.user.email ?? _authService.currentUser?.email ?? 'User',
+                    widget.user.fullName ?? _authService.currentUser?.displayName ?? 'User',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    widget.user.email ,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -78,8 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.history),
               title: const Text('Trip History'),
               onTap: () {
-                // TODO: Implement trip history navigation
-                context.pop();
+                Navigator.pop(context);
+                Navigator.pushNamed(context, Routes.tripHistory, arguments: widget.user);
               },
             ),
             ListTile(

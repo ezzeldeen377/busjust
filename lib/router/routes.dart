@@ -5,4 +5,5 @@ class Routes {
   static const String signup = '/signup/:userType';
   static const String home = '/home';
   static const String map = '/map';
+  static const String tripHistory = '/trip-history';
 }

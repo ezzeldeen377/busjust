@@ -78,8 +78,8 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map View'),
-        backgroundColor: const Color(0xFF0072ff),
+        title: const Text('Map View',style: TextStyle(color: Colors.white),),
+        backgroundColor: const Color(0xFF0072ff),iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: _isLoading || _currentPosition == null
           ? const Center(child: CircularProgressIndicator())

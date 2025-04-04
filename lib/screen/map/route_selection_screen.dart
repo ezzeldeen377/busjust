@@ -5,6 +5,8 @@ import 'package:bus_just/models/bus.dart';
 import 'package:bus_just/models/driver.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
 
 class RouteSelectionScreen extends StatefulWidget {
   final Driver driver;
@@ -33,10 +35,39 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
       const LatLng(24.7136, 46.6753); // Default to Riyadh, Saudi Arabia
   bool _isLoading = true;
   final TextEditingController _stationNameController = TextEditingController();
+  BitmapDescriptor? _stationIcon;
+  Future<Uint8List> _getBytesFromAsset(String path, int width) async {
+    ByteData data = await rootBundle.load(path);
+    ui.Codec codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetWidth: width,
+    );
+    ui.FrameInfo fi = await codec.getNextFrame();
+    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!
+        .buffer
+        .asUint8List();
+  }
+
+  Future<void> _loadStationIcon() async {
+    try {
+      final Uint8List markerIcon =
+          await _getBytesFromAsset('assets/images/station_icon.png', 80);
+      _stationIcon = BitmapDescriptor.fromBytes(markerIcon);
+    } catch (e) {
+      _stationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load station icon: $e')),
+        );
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _loadStationIcon();
   }
 
   @override
@@ -118,8 +149,9 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Select Route for ${widget.driver.fullName}'),
+        title: Text('Select Route for ${widget.driver.fullName}',style: const TextStyle(color: Colors.white),),
         backgroundColor: const Color(0xFF0072ff),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _stationPoints.isNotEmpty
@@ -226,14 +258,39 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _stationNameController,
-              decoration: const InputDecoration(
-                labelText: 'Station Name',
-                hintText: 'Enter station name',
-                border: OutlineInputBorder(),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              autofocus: true,
+              child: TextField(
+                controller: _stationNameController,
+                style: const TextStyle(fontSize: 16),
+                decoration: InputDecoration(
+                  labelText: 'Station Name',
+                  labelStyle: TextStyle(color: Colors.grey.shade700),
+                  hintText: 'Enter station name',
+                  prefixIcon: Icon(Icons.location_on, color: const Color(0xFF0072ff), size: 22),
+                  filled: true,
+                  fillColor: Colors.white,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: const BorderSide(color: Color(0xFF0072ff), width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                autofocus: true,
+              ),
             ),
             const SizedBox(height: 16),
             Row(
@@ -265,7 +322,7 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
                           markerId:
                               MarkerId('station_${_stationPoints.length}'),
                           position: station,
-                          icon: BitmapDescriptor.defaultMarker,
+                          icon: _stationIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
                           infoWindow: InfoWindow(
                               title: _stationNameController.text.trim()),
                         ),
