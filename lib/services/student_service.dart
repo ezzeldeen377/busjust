@@ -145,6 +145,16 @@ class StudentService {
       throw Exception('Failed to select route: ${e.toString()}');
     }
   }
+  Future<void> endTrip(String studentId) async {
+    try {
+      await _firestore.collection('users').doc(studentId).update({
+        'selectedRouteId': null,
+        'lastUpdated': Timestamp.now()
+      });
+    } catch (e) {
+      throw Exception('Failed to select route: ${e.toString()}');
+    }
+  }
 
   // Subscribe to notifications
   Future<void> subscribeToNotifications(String studentId, List<String> topics) async {

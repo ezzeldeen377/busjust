@@ -1,4 +1,5 @@
 import 'package:bus_just/models/bus.dart';
+import 'package:bus_just/models/driver.dart';
 import 'package:bus_just/models/lost_item.dart';
 import 'package:bus_just/models/route_update.dart';
 import 'package:bus_just/models/student.dart';
@@ -20,8 +21,7 @@ class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key, required this.student});
 
   @override
-  _StudentHomeScreenState createState() =>
-      _StudentHomeScreenState();
+  _StudentHomeScreenState createState() => _StudentHomeScreenState();
 }
 
 class _StudentHomeScreenState extends State<StudentHomeScreen>
@@ -29,7 +29,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   late TabController _tabController;
   final StudentService _studentService = StudentService.instance;
   final BusTrackingService _busTrackingService = BusTrackingService.instance;
-  final NotificationService _notificationService = NotificationService.instance;
+
+  // Define constants for consistent styling
+  final Color _primaryColor = const Color(0xFF0072ff);
+  final Color _secondaryColor = const Color(0xFF00c6ff);
+  final double _borderRadius = 12.0;
 
   // State variables
   Trip? selectedTrip;
@@ -69,21 +73,22 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       }
 
       // Get student's selected route ID
-      final studentData = await FirestoreService.instance.getSpecficData(
-          "users", widget.student.id);
+      final studentData = await FirestoreService.instance
+          .getSpecficData("users", widget.student.id);
       final studentSelectedRouteId = studentData.data()?['selectedRouteId'];
       print("studentSelectedRouteId: $studentSelectedRouteId");
       // If student has a selected route, find it in available trips
       if (studentSelectedRouteId != null && _availableTrips.isNotEmpty) {
         final selectedTripData = _availableTrips.firstWhere(
-          (trip) => trip.id == studentSelectedRouteId&&trip.status=='active',
+          (trip) =>
+              trip.id == studentSelectedRouteId && trip.status == 'active',
           orElse: () => _availableTrips.first,
         );
-        
+
         setState(() {
           selectedTrip = selectedTripData;
         });
-        
+
         // Load bus info for the selected trip
         await _loadBusInfo();
       }
@@ -105,9 +110,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
 
       if (selectedTrip != null) {
         _tripId = selectedTrip?.id;
-        final busData =
-            await FirestoreService.instance.getSpecficData("buses", selectedTrip!.busId!);
-         _bus = Bus.fromMap(busData.data()!);
+        final busData = await FirestoreService.instance
+            .getSpecficData("buses", selectedTrip!.busId!);
+        _bus = Bus.fromMap(busData.data()!);
         final busStops = selectedTrip?.stations;
 
         // Get estimated arrival time
@@ -121,7 +126,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
           });
         }
         // Listen to bus location updates
-        _busTrackingService.getBusLocationStream( _bus?.id??'').listen((location) {
+        _busTrackingService
+            .getBusLocationStream(_bus?.id ?? '')
+            .listen((location) {
           setState(() {
             _busLocation = location;
           });
@@ -160,6 +167,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     }
 
     try {
+      // Show loading indicator
+      setState(() {
+        _isLoading = true;
+      });
+      
       final feedback = bus_feedback.Feedback(
         id: FirebaseFirestore.instance.collection('feedback').doc().id,
         studentId: widget.student.id,
@@ -176,6 +188,10 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       _showSuccessSnackBar('Feedback submitted successfully');
     } catch (e) {
       _showErrorSnackBar('Error submitting feedback: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -187,6 +203,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     }
 
     try {
+      // Show loading indicator
+      setState(() {
+        _isLoading = true;
+      });
+      
       final lostItem = LostItem(
         id: FirebaseFirestore.instance.collection('lostItems').doc().id,
         studentId: widget.student.id,
@@ -205,6 +226,10 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       _showSuccessSnackBar('Lost item reported successfully');
     } catch (e) {
       _showErrorSnackBar('Error reporting lost item: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -242,6 +267,72 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     }
   }
 
+  Future<void> _endTrip() async {
+    try {
+      // Update Firestore to set selectedRouteId to null
+      await _studentService.endTrip(widget.student.id,);
+      
+      // Reset state variables
+      setState(() {
+        selectedTrip = null;
+        _estimatedArrivalTime = null;
+        _busLocation = null;
+        _tripId = null;
+        _bus = null;
+      });
+      
+      _showSuccessSnackBar('Trip ended successfully');
+    } catch (e) {
+      _showErrorSnackBar('Error ending trip: $e');
+    }
+  }
+
+  // Helper method to build consistent text fields
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData prefixIcon,
+    String? hintText,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        style: const TextStyle(fontSize: 16),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hintText,
+          labelStyle: TextStyle(color: Colors.grey.shade700),
+          prefixIcon: Icon(prefixIcon, color: _primaryColor, size: 22),
+          filled: true,
+          fillColor: Colors.white,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(_borderRadius),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(_borderRadius),
+            borderSide: BorderSide(color: _primaryColor, width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -268,121 +359,149 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
               children: [
                 // Bus arrival card
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    color: Colors.white,
-                    child: Container(
-                      padding: const EdgeInsets.all(20.0),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            spreadRadius: 0,
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
+                  padding: const EdgeInsets.all(12.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.blue.shade50,
+                          Colors.white,
                         ],
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.1),
+                          spreadRadius: 0,
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF0072ff).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Image.asset(
+                                      "assets/images/bus.png",
+                                      width: 60,
+                                      height: 36,
                                     ),
-                                    child: const Icon(Icons.directions_bus,
-                                        color: Color(0xFF0072ff), size: 24),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Next Bus Arrival',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 18,
-                                            letterSpacing: -0.5),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Next Bus Arrival',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              letterSpacing: -0.5,
+                                              color: Color(0xFF2D3142),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: _estimatedArrivalTime != null
+                                                      ? const Color(0xFF00C853).withOpacity(0.15)
+                                                      : Colors.grey.withOpacity(0.15),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.access_time_rounded,
+                                                      size: 14,
+                                                      color: _estimatedArrivalTime != null
+                                                          ? const Color(0xFF00C853)
+                                                          : Colors.grey[600],
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      _estimatedArrivalTime != null
+                                                          ? '${_estimatedArrivalTime!.difference(DateTime.now()).inMinutes} mins'
+                                                          : 'No active trips',
+                                                      style: TextStyle(
+                                                        color: _estimatedArrivalTime != null
+                                                            ? const Color(0xFF00C853)
+                                                            : Colors.grey[600],
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _estimatedArrivalTime != null
-                                            ? 'ETA: ${DateFormat.jm().format(_estimatedArrivalTime!)}'
-                                            : 'No active trips',
-                                        style: TextStyle(
-                                          color: _estimatedArrivalTime != null
-                                              ? const Color(0xFF00C853)
-                                              : Colors.grey[600],
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: _busLocation != null
-                                    ? _navigateToMapScreen
-                                    : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0072ff),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  ],
                                 ),
-                                icon: const Icon(Icons.map, size: 18),
-                                label: const Text('Track',
-                                    style: TextStyle(fontWeight: FontWeight.w600)),
                               ),
                             ],
                           ),
-                          if (_routeUpdates.isNotEmpty) ...[
-                            const Divider(height: 24),
-                            const Text(
-                              'Latest Updates',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.amber[50],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.amber[200]!),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.info_outline,
-                                      color: Colors.amber[800], size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _routeUpdates.first.message,
-                                      style:
-                                          TextStyle(color: Colors.amber[900]),
-                                    ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _busLocation != null
+                                      ? _navigateToMapScreen
+                                      : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0072ff),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10)),
                                   ),
-                                ],
+                                  icon: const Icon(Icons.route_outlined, size: 16, color: Colors.white,),
+                                  label: const Text('Track',
+                                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: selectedTrip != null
+                                      ? _endTrip
+                                      : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF5252),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.white),
+                                  label: const Text('End Trip',
+                                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -448,90 +567,362 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                     itemCount: _availableTrips.length,
                     itemBuilder: (context, index) {
                       final trip = _availableTrips[index];
-                      final isSelected = trip.id == selectedTrip;
+                      final isSelected = trip.id == selectedTrip?.id;
 
-                      return Card(
-  margin: const EdgeInsets.only(bottom: 16),
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-  elevation: isSelected ? 8 : 2,
-  color: Colors.white,
-  child: InkWell(
-    onTap: () => _selectRoute(trip),
-    borderRadius: BorderRadius.circular(16),
-    child: Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: isSelected ? Border.all(color: const Color(0xFF0072ff), width: 2) : null,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, Colors.grey.shade50],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          /// Trip ID and Selected Badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _bus?.busName?? 'Unknown',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: -0.5),
-              ),
-              if (isSelected)
-                const Icon(Icons.check_circle, color: Color(0xFF0072ff), size: 24),
-            ],
-          ),
-          const SizedBox(height: 12),
+                      return FutureBuilder<Map<String, dynamic>>(
+                        future: Future.wait([
+                          FirestoreService.instance
+                              .getStreamedData('buses')
+                              .first
+                              .then((snapshot) => snapshot.docs
+                                  .firstWhere((doc) => doc.id == trip.busId)
+                                  .data() as Map<String, dynamic>),
+                          FirestoreService.instance
+                              .getStreamedData('users',
+                                  condition: 'id', value: trip.driverId)
+                              .first
+                              .then((snapshot) => snapshot.docs.first.data()
+                                  as Map<String, dynamic>),
+                        ]).then((results) => {
+                              'bus': Bus.fromMap(results[0]),
+                              'driver': Driver.fromMap(results[1]),
+                            }),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Card(
+                              child: ListTile(
+                                leading: CircularProgressIndicator(),
+                                title: Text('Loading trip details...'),
+                              ),
+                            );
+                          }
 
-          /// Route Information
-          Row(
-            children: [
-              const Icon(Icons.location_on, color: Colors.green, size: 18),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  trip.stations?.first.name ?? 'Unknown',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.location_on, color: Colors.red, size: 18),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  trip.stations?.last.name ?? 'Unknown',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        
-          const SizedBox(height: 12),
+                          if (snapshot.hasError) {
+                            return const Center(child: Text('No active trips'));
+                          }
 
-          /// Status and Available Seats
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Status: ${trip.status ?? 'Not specified'}',
-                style: TextStyle(color: Colors.grey[700], fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-             
-            ],
-          ),
-        ],
-      ),
-    ),
-  ),
-);
+                          final bus = snapshot.data!['bus'] as Bus;
+                          final driver = snapshot.data!['driver'] as Driver;
 
+                          return Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: Container(
+                              padding: const EdgeInsets.all(16.0),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white,
+                                    Colors.blue.shade50,
+                                  ],
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  '${bus.busName}',
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '| #${bus.busNumber}',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.person_outline,
+                                                  size: 16,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  driver.fullName ?? '',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      SizedBox(
+                                        width: 100,
+                                        height: 80,
+                                        child: Image.asset(
+                                            "assets/images/bus.png"),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.airline_seat_recline_normal,
+                                        size: 16,
+                                        color: Color(0xFF0072ff),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Capacity: ${bus.capacity}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      const Icon(
+                                        Icons.route,
+                                        size: 16,
+                                        color: Color(0xFF0072ff),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${((trip.distance ?? 0) / 1000).toStringAsFixed(1)} km',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      const Icon(
+                                        Icons.access_time,
+                                        size: 16,
+                                        color: Color(0xFF0072ff),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${trip.estimatedTimeMinutes ?? '0'} min',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(
+                                            color: Colors.grey[200]!),
+                                      ),
+                                    ),
+                                    child: Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            if (trip.stations != null &&
+                                                trip.stations!.isNotEmpty)
+                                              Expanded(
+                                                // Prevents overflow inside the Row
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Container(
+                                                          width: 18,
+                                                          height: 18,
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(4),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: Colors
+                                                                .green[100],
+                                                            shape:
+                                                                BoxShape.circle,
+                                                          ),
+                                                          child: Container(
+                                                            decoration:
+                                                                const BoxDecoration(
+                                                              color:
+                                                                  Colors.green,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 8),
+                                                        Expanded(
+                                                          // Ensures text does not overflow
+                                                          child: Text(
+                                                            trip.stations!.first
+                                                                    .name ??
+                                                                'Starting Point',
+                                                            style:
+                                                                const TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    if (trip.stations!.length >
+                                                        1)
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            width: 18,
+                                                            height: 18,
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .all(4),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: Colors
+                                                                  .red[100],
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                            child: Container(
+                                                              decoration:
+                                                                  const BoxDecoration(
+                                                                color:
+                                                                    Colors.red,
+                                                                shape: BoxShape
+                                                                    .circle,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 8),
+                                                          Expanded(
+                                                            // Prevents overflow
+                                                            child: Text(
+                                                              trip
+                                                                      .stations!
+                                                                      .last
+                                                                      .name ??
+                                                                  'Destination',
+                                                              style:
+                                                                  const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            const SizedBox(
+                                                width:
+                                                    8), // Adds spacing to prevent overflow
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        trip.status == 'active'
+                                                            ? Colors.green[100]
+                                                            : Colors.grey[100],
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                  ),
+                                                  child: Text(
+                                                    trip.status
+                                                            ?.toUpperCase() ??
+                                                        'N/A',
+                                                    style: TextStyle(
+                                                      color: trip.status ==
+                                                              'active'
+                                                          ? Colors.green[900]
+                                                          : Colors.grey[900],
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        )),
+                                  ),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: trip.status == 'active'
+                                          ? () => _selectRoute(trip)
+                                          : null,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF0072ff),
+                                        foregroundColor: Colors.white,
+                                        elevation: 2,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
+                                        textStyle: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      child: const Text('Book Trip'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
                     },
                   ),
           ),
@@ -547,26 +938,69 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Submit Feedback',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Icon(
+                  Icons.star_rounded,
+                  color: _primaryColor,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Submit Feedback',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Card(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'How would you rate your experience?',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(_borderRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.rate_review_rounded,
+                        color: _primaryColor,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'How would you rate your experience?',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(_borderRadius),
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(
                         5,
@@ -588,43 +1022,33 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Your feedback',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _feedbackController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: 'Tell us about your experience...',
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                              color: Color(0xFF0072ff), width: 2),
-                        ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildTextField(
+                    controller: _feedbackController,
+                    label: 'Your Feedback',
+                    prefixIcon: Icons.comment_rounded,
+                    hintText: 'Tell us about your experience...',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _submitFeedback,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryColor,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(_borderRadius),
                       ),
+                      elevation: 2,
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _submitFeedback,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0072ff),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text('Submit Feedback'),
-                      ),
+                    child: const Text(
+                      'Submit Feedback',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -640,95 +1064,104 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Report Lost Item',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Item Name',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _lostItemNameController,
-                      decoration: InputDecoration(
-                        hintText: 'What did you lose?',
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                              color: Color(0xFF0072ff), width: 2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Description',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _lostItemDescController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: 'Provide details about the item...',
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                              color: Color(0xFF0072ff), width: 2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              // TODO: Implement image upload
-                            },
-                            icon: const Icon(Icons.photo_camera),
-                            label: const Text('Add Photo'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey[200],
-                              foregroundColor: Colors.black87,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _reportLostItem,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0072ff),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: const Text('Report'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            Row(
+              children: [
+                Icon(
+                  Icons.search_rounded,
+                  color: _primaryColor,
+                  size: 28,
                 ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Report Lost Item',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(_borderRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTextField(
+                    controller: _lostItemNameController,
+                    label: 'Item Name',
+                    prefixIcon: Icons.inventory_2_rounded,
+                    hintText: 'What did you lose?',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _lostItemDescController,
+                    label: 'Description',
+                    prefixIcon: Icons.description_rounded,
+                    hintText: 'Provide details about the item...',
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // TODO: Implement image upload
+                          },
+                          icon: const Icon(Icons.photo_camera, color: Colors.black87, size: 20),
+                          label: const Text(
+                            'Add Photo',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade100,
+                            foregroundColor: Colors.black87,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(_borderRadius),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _reportLostItem,
+                          icon: const Icon(Icons.send_rounded, size: 20),
+                          label: const Text(
+                            'Report',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 2,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(_borderRadius),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
