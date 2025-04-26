@@ -1,10 +1,12 @@
+import 'package:bus_just/models/bus.dart';
+import 'package:bus_just/models/driver.dart';
+import 'package:bus_just/models/trip.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bus_just/models/feedback.dart' as bus_feedback;
 import 'package:bus_just/models/lost_item.dart';
 
 class StudentService {
   static final StudentService instance = StudentService._internal();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   factory StudentService() {
     return instance;
@@ -12,26 +14,45 @@ class StudentService {
 
   StudentService._internal();
 
+  static CollectionReference<Map<String, dynamic>> get usersCollection =>
+      FirebaseFirestore.instance.collection('users');
+
+  static CollectionReference<Map<String, dynamic>> get tripsCollection =>
+      FirebaseFirestore.instance.collection('trips');
+
+  static CollectionReference<Map<String, dynamic>> get lostItemsCollection =>
+      FirebaseFirestore.instance.collection('lostItems');
+
+  static CollectionReference<Map<String, dynamic>> get feedbackCollection =>
+      FirebaseFirestore.instance.collection('feedback');
+
+  static CollectionReference<Map<String, dynamic>> get busesCollection =>
+      FirebaseFirestore.instance.collection('buses');
+
+  static CollectionReference<Map<String, dynamic>>
+      get busMalfunctionsCollection =>
+          FirebaseFirestore.instance.collection('bus_malfunctions');
   // Submit feedback
-  Future<void> submitFeedback(bus_feedback.Feedback feedback) async {
+  static Future<void> submitFeedback(
+      bus_feedback.FeedbackModel feedback) async {
     try {
-      await _firestore.collection('feedback').doc(feedback.id).set(feedback.toMap());
+      await feedbackCollection.doc(feedback.id).set(feedback.toMap());
     } catch (e) {
       throw Exception('Failed to submit feedback: ${e.toString()}');
     }
   }
 
   // Get feedback history for a student
-  Future<List<bus_feedback.Feedback>> getFeedbackHistory(String studentId) async {
+  static Future<List<bus_feedback.FeedbackModel>> getFeedbackHistory(
+      String studentId) async {
     try {
-      final querySnapshot = await _firestore
-          .collection('feedback')
+      final querySnapshot = await feedbackCollection
           .where('studentId', isEqualTo: studentId)
           .orderBy('timestamp', descending: true)
           .get();
-      
+
       return querySnapshot.docs
-          .map((doc) => bus_feedback.Feedback.fromMap(doc.data() as Map<String, dynamic>))
+          .map((doc) => bus_feedback.FeedbackModel.fromMap(doc.data()))
           .toList();
     } catch (e) {
       throw Exception('Failed to get feedback history: ${e.toString()}');
@@ -39,25 +60,24 @@ class StudentService {
   }
 
   // Report lost item
-  Future<void> reportLostItem(LostItem lostItem) async {
+  static Future<void> reportLostItem(LostItem lostItem) async {
     try {
-      await _firestore.collection('lostItems').doc(lostItem.id).set(lostItem.toMap());
+      await lostItemsCollection.doc(lostItem.id).set(lostItem.toMap());
     } catch (e) {
       throw Exception('Failed to report lost item: ${e.toString()}');
     }
   }
 
   // Get lost item reports for a student
-  Future<List<LostItem>> getLostItemReports(String studentId) async {
+  static Future<List<LostItem>> getLostItemReports(String studentId) async {
     try {
-      final querySnapshot = await _firestore
-          .collection('lostItems')
+      final querySnapshot = await lostItemsCollection
           .where('studentId', isEqualTo: studentId)
           .orderBy('reportDate', descending: true)
           .get();
-      
+
       return querySnapshot.docs
-          .map((doc) => LostItem.fromMap(doc.data() as Map<String, dynamic>))  
+          .map((doc) => LostItem.fromMap(doc.data()))
           .toList();
     } catch (e) {
       throw Exception('Failed to get lost item reports: ${e.toString()}');
@@ -65,15 +85,14 @@ class StudentService {
   }
 
   // Get all lost items (for admin or driver view)
-  Future<List<LostItem>> getAllLostItems() async {
+  static Future<List<LostItem>> getAllLostItems() async {
     try {
-      final querySnapshot = await _firestore
-          .collection('lostItems')
+      final querySnapshot = await lostItemsCollection
           .orderBy('reportDate', descending: true)
           .get();
-      
+
       return querySnapshot.docs
-          .map((doc) => LostItem.fromMap(doc.data() as Map<String, dynamic>))  
+          .map((doc) => LostItem.fromMap(doc.data()))
           .toList();
     } catch (e) {
       throw Exception('Failed to get all lost items: ${e.toString()}');
@@ -81,90 +100,144 @@ class StudentService {
   }
 
   // Update lost item status
-  Future<void> updateLostItemStatus(String itemId, String newStatus) async {
+  static Future<void> updateLostItemStatus(
+      String itemId, String newStatus) async {
     try {
-      await _firestore.collection('lostItems').doc(itemId).update({
-        'status': newStatus
-      });
+      await lostItemsCollection.doc(itemId).update({'status': newStatus});
     } catch (e) {
       throw Exception('Failed to update lost item status: ${e.toString()}');
     }
   }
 
   // Get real-time bus location updates
-  Stream<DocumentSnapshot> getBusLocationUpdates(String busId) {
+  static Stream<DocumentSnapshot> getBusLocationUpdates(String busId) {
     try {
-      return _firestore.collection('buses').doc(busId).snapshots();
+      return busesCollection.doc(busId).snapshots();
     } catch (e) {
       throw Exception('Failed to get bus location updates: ${e.toString()}');
     }
   }
-
-  // Get estimated arrival time for a specific bus
-  Future<DateTime?> getEstimatedArrivalTime(String busId, String stopId) async {
+    static Future<DocumentSnapshot<Map<String, dynamic>>> getStudentData(String studentId) async {
     try {
-      final doc = await _firestore
-          .collection('busSchedules')
-          .where('busId', isEqualTo: busId)
-          .where('stopId', isEqualTo: stopId)
-          .get();
-      
-      if (doc.docs.isEmpty) return null;
-      
-      final data = doc.docs.first.data();
-      return (data['estimatedArrival'] as Timestamp).toDate();
+      return await usersCollection.doc(studentId).get();
     } catch (e) {
-      throw Exception('Failed to get estimated arrival time: ${e.toString()}');
+      throw Exception('Failed to get student data: ${e.toString()}');
     }
   }
-
-  // Get available routes for a student
-  Future<List<Map<String, dynamic>>> getAvailabletTrips() async {
+    static Future<DocumentSnapshot<Map<String, dynamic>>> getBusData(String busId) async {
     try {
-      final querySnapshot = await _firestore
-          .collection('trips')
-          .where('status', isEqualTo: "active")
-          .get();
-      
-      return querySnapshot.docs
-          .map((doc) => doc.data())
-          .toList();
+      return await busesCollection.doc(busId).get();
+    } catch (e) {
+      throw Exception('Failed to get bus data: ${e.toString()}');
+    }
+  }
+  // Get available routes for a student
+  static Future<List<Map<String, dynamic>>> getAvailabletTrips() async {
+    try {
+      final querySnapshot =
+          await tripsCollection.where('status', isEqualTo: "active").get();
+
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
     } catch (e) {
       throw Exception('Failed to get available routes: ${e.toString()}');
     }
   }
 
   // Select a route for a student
-  Future<void> selectRoute(String studentId, String routeId) async {
+  static Future<void> selectRoute(String studentId, String routeId) async {
     try {
-      await _firestore.collection('users').doc(studentId).update({
-        'selectedRouteId': routeId,
+      // Start a batch write
+      final batch = FirebaseFirestore.instance.batch();
+
+      // Update user's selected route
+      batch.update(usersCollection.doc(studentId),
+          {'selectedRouteId': routeId, 'lastUpdated': Timestamp.now()});
+
+      // Add student to trip's passenger list
+      batch.update(tripsCollection.doc(routeId), {
+        'studentIds': FieldValue.arrayUnion([studentId]),
         'lastUpdated': Timestamp.now()
       });
-    } catch (e) {
-      throw Exception('Failed to select route: ${e.toString()}');
-    }
-  }
-  Future<void> endTrip(String studentId) async {
-    try {
-      await _firestore.collection('users').doc(studentId).update({
-        'selectedRouteId': null,
-        'lastUpdated': Timestamp.now()
-      });
+
+      await batch.commit();
     } catch (e) {
       throw Exception('Failed to select route: ${e.toString()}');
     }
   }
 
-  // Subscribe to notifications
-  Future<void> subscribeToNotifications(String studentId, List<String> topics) async {
+  static Future<void> endTrip(String studentId) async {
     try {
-      await _firestore.collection('notifications').doc(studentId).set({
-        'topics': topics,
-        'lastUpdated': Timestamp.now()
-      }, SetOptions(merge: true));
+      // Get current user data to find the route
+      final userDoc = await usersCollection.doc(studentId).get();
+      final currentRouteId = userDoc.data()?['selectedRouteId'];
+
+      if (currentRouteId != null) {
+        // Start a batch write
+        final batch = FirebaseFirestore.instance.batch();
+
+        // Remove selected route from user
+        batch.update(usersCollection.doc(studentId),
+            {'selectedRouteId': null, 'lastUpdated': Timestamp.now()});
+
+        // Remove student from trip's passenger list
+
+        await batch.commit();
+      }
     } catch (e) {
-      throw Exception('Failed to subscribe to notifications: ${e.toString()}');
+      throw Exception('Failed to end trip: ${e.toString()}');
+    }
+  }
+
+
+  static Future<List<Trip>> getFinishedTrips(String studentId) async {
+    try {
+      final querySnapshot = await tripsCollection
+          .where('studentIds', arrayContains: studentId)
+          .where('status', isEqualTo: 'completed')
+          .orderBy('startTime', descending: true)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => Trip.fromMap({...doc.data(), 'id': doc.id}))
+          .toList();
+    } catch (e) {
+      print('Error fetching finished trips: $e');
+      return [];
+    }
+  }
+    static Future<Map<String, dynamic>> getTripDetails(String busId, String driverId) async {
+    try {
+      final results = await Future.wait([
+        busesCollection.doc(busId).get(),
+        usersCollection.doc(driverId).get(),
+      ]);
+
+      if (!results[0].exists || !results[1].exists) {
+        throw Exception('Bus or driver data not found');
+      }
+
+      return {
+        'bus': Bus.fromMap(results[0].data()!),
+        'driver': Driver.fromMap(results[1].data()!),
+      };
+    } catch (e) {
+      throw Exception('Failed to get trip details: ${e.toString()}');
+    }
+  }
+
+  // Collection References
+  static Future<List<Trip>> getStudentTripHistory(String studentId) async {
+    try {
+      final querySnapshot = await tripsCollection
+          .where('studentIds', arrayContains: studentId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => Trip.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get student trip history: ${e.toString()}');
     }
   }
 }

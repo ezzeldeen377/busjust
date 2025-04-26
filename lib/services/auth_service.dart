@@ -90,6 +90,8 @@ class AuthService {
         return 'Wrong password provided.';
       case 'operation-not-allowed':
         return 'Email & Password accounts are not enabled.';
+         case 'invalid-credential':
+        return "Invalid email or password";
       default:
         return 'An error occurred. Please try again.';
     }

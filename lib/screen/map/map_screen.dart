@@ -16,10 +16,6 @@ class _MapScreenState extends State<MapScreen> {
   final Set<Marker> _markers = {};
   bool _isLoading = true;
 
-  static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(24.7136, 46.6753), // Default to Riyadh, Saudi Arabia
-    zoom: 14.0,
-  );
 
   @override
   void initState() {

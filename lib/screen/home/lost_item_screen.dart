@@ -51,7 +51,7 @@ class _LostItemScreenState extends State<LostItemScreen> {
           status: 'pending',
         );
 
-        await _studentService.reportLostItem(lostItem);
+        await StudentService.reportLostItem(lostItem);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

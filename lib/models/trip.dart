@@ -12,6 +12,8 @@ class Trip {
   final List<Station>? stations;
   final String? status;
   final DateTime? createdAt;
+  final DateTime? lastUpdate;  // Added
+  final List<String>? studentIds;  // Added
   final double? distance;
   final int? estimatedTimeMinutes;
 
@@ -22,6 +24,8 @@ class Trip {
      this.stations,
      this.status,
      this.createdAt,
+     this.lastUpdate,  // Added
+     this.studentIds,  // Added
      this.distance,
      this.estimatedTimeMinutes,
   });
@@ -36,6 +40,8 @@ class Trip {
           : null,
       status: map['status'] as String,
       createdAt: map['createdAt'] != null ? (map['createdAt'] as Timestamp).toDate() : null,
+      lastUpdate: map['lastUpdate'] != null ? (map['lastUpdate'] as Timestamp).toDate() : null,  // Added
+      studentIds: map['studentIds'] != null ? List<String>.from(map['studentIds']) : null,  // Added
       distance: map['distance'] != null ? (map['distance'] as num).toDouble() : null,
       estimatedTimeMinutes: map['estimatedTimeMinutes'] as int?,
     );
@@ -49,6 +55,8 @@ class Trip {
       'stations': stations?.map((x) => x.toMap()).toList(),
       'status': status,
       'createdAt': createdAt,
+      'lastUpdate': lastUpdate,  // Added
+      'studentIds': studentIds,  // Added
       'distance': distance,
       'estimatedTimeMinutes': estimatedTimeMinutes,
     };
@@ -61,6 +69,8 @@ class Trip {
     List<Station>? stations,
     String? status,
     DateTime? createdAt,
+    DateTime? lastUpdate,  // Added
+    List<String>? studentIds,  // Added
     bool? isActive,
     double? distance,
     int? estimatedTimeMinutes,
@@ -72,6 +82,8 @@ class Trip {
       stations: stations ?? this.stations,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      lastUpdate: lastUpdate ?? this.lastUpdate,  // Added
+      studentIds: studentIds ?? this.studentIds,  // Added
       distance: distance ?? this.distance,
       estimatedTimeMinutes: estimatedTimeMinutes ?? this.estimatedTimeMinutes,
     );
@@ -83,7 +95,7 @@ class Trip {
 
   @override
   String toString() {
-    return 'Trip(id: $id, driverId: $driverId, busId: $busId, stations: $stations, status: $status, createdAt: $createdAt, distance: $distance, estimatedTimeMinutes: $estimatedTimeMinutes)';
+    return 'Trip(id: $id, driverId: $driverId, busId: $busId, stations: $stations, status: $status, createdAt: $createdAt, lastUpdate: $lastUpdate, studentIds: $studentIds, distance: $distance, estimatedTimeMinutes: $estimatedTimeMinutes)';  // Updated
   }
 
   @override
@@ -97,6 +109,8 @@ class Trip {
       listEquals(other.stations, stations) &&
       other.status == status &&
       other.createdAt == createdAt &&
+      other.lastUpdate == lastUpdate &&  // Added
+      listEquals(other.studentIds, studentIds) &&  // Added
       other.distance == distance &&
       other.estimatedTimeMinutes == estimatedTimeMinutes;
   }
@@ -109,6 +123,8 @@ class Trip {
       stations.hashCode ^
       status.hashCode ^
       createdAt.hashCode ^
+      lastUpdate.hashCode ^  // Added
+      studentIds.hashCode ^  // Added
       distance.hashCode ^
       estimatedTimeMinutes.hashCode;
   }

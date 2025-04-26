@@ -1,10 +1,14 @@
 import 'package:bus_just/models/user.dart';
 import 'package:bus_just/models/student.dart';
 import 'package:bus_just/router/routes.dart';
+import 'package:bus_just/screen/admin/report_screen.dart';
 import 'package:bus_just/screen/home/student_home_screen.dart';
 import 'package:bus_just/screen/home/admin_home_screen.dart';
 import 'package:bus_just/screen/home/driver_home_screen.dart';
 import 'package:bus_just/screen/home/student_home_screen.dart';
+import 'package:bus_just/widgets/admin/bus_malfunction_reports.dart';
+import 'package:bus_just/widgets/admin/feedback_reports.dart';
+import 'package:bus_just/widgets/admin/lost_reports.dart';
 import 'package:flutter/material.dart';
 import 'package:bus_just/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
@@ -91,12 +95,53 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, Routes.tripHistory, arguments: widget.user);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-              },
-            ),
+            if (widget.user.role == UserRole.admin) ...[
+              ListTile(
+                leading: const Icon(Icons.search),
+                title: const Text('Lost Items'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ReportScreen(
+                        title: 'Lost Items Reports',
+                        child: LostReports(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.feedback),
+                title: const Text('Feedback'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ReportScreen(
+                        title: 'Feedback Reports',
+                        child: FeedbackReports(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.build),
+                title: const Text('Bus Malfunctions'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ReportScreen(
+                        title: 'Bus Malfunction Reports',
+                        child: BusMalfunctionReports(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
@@ -121,7 +166,6 @@ if (widget.user.role ==UserRole.student ) {
     id: widget.user.id,
     fullName: widget.user.fullName ?? '',
     email: widget.user.email,
-    universityId: '',  // This would need to be populated from Firestore
     phoneNumber: widget.user.phoneNumber,
     profilePicture: widget.user.profilePicture,
   );

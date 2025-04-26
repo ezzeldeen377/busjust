@@ -42,7 +42,7 @@ class AppRouter {
           return MaterialPageRoute(
             builder: (_) => EnhancedMapScreen(
               initialBusLocation: busLocation,
-              busId: tripId,
+              busId: tripId!,
               stations: stations,
             ),
           );

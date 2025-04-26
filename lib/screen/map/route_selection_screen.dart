@@ -30,9 +30,7 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
   Set<Marker> _markers = {};
   bool _isSelectingStations = true;
 
-  // Use a default location in Saudi Arabia instead of (0,0) which could be invalid
-  LatLng _center =
-      const LatLng(24.7136, 46.6753); // Default to Riyadh, Saudi Arabia
+  LatLng? _center; // Make nullable, remove default
   bool _isLoading = true;
   final TextEditingController _stationNameController = TextEditingController();
   BitmapDescriptor? _stationIcon;
@@ -127,10 +125,9 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
           _center = LatLng(position.latitude, position.longitude);
           _isLoading = false;
         });
-        // Only animate camera if controller is initialized
-        if (_mapController != null) {
+        if (_mapController != null && _center != null) {
           _mapController!.animateCamera(
-            CameraUpdate.newLatLngZoom(_center, 14.0),
+            CameraUpdate.newLatLngZoom(_center!, 14.0),
           );
         }
       }
@@ -170,18 +167,18 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
       ),
       body: Stack(
         children: [
-          if (!_isLoading)
+          if (!_isLoading && _center != null)
             GoogleMap(
               onMapCreated: (controller) {
                 setState(() {
                   _mapController = controller;
                 });
                 _mapController?.animateCamera(
-                  CameraUpdate.newLatLngZoom(_center, 14.0),
+                  CameraUpdate.newLatLngZoom(_center!, 14.0),
                 );
               },
               initialCameraPosition: CameraPosition(
-                target: _center,
+                target: _center!,
                 zoom: 14.0,
               ),
               markers: _markers,
@@ -191,7 +188,7 @@ class _RouteSelectionScreenState extends State<RouteSelectionScreen> {
               zoomControlsEnabled: true,
               compassEnabled: true,
             ),
-          if (_isLoading)
+          if (_isLoading || _center == null)
             const Center(
               child: CircularProgressIndicator(),
             ),

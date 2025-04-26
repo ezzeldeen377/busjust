@@ -1,6 +1,10 @@
+import 'package:bus_just/models/admin.dart';
 import 'package:bus_just/models/trip.dart';
 import 'package:bus_just/models/user.dart';
+import 'package:bus_just/services/admin_service.dart';
+import 'package:bus_just/services/driver_service.dart';
 import 'package:bus_just/services/firestore_service.dart';
+import 'package:bus_just/services/student_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -33,36 +37,23 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
     setState(() {
       _isLoading = true;
     });
-
+    List<Trip> trips=[];
     try {
       // Query parameters depend on user role
-      String? fieldName;
-      String? fieldValue;
+  
 
       if (widget.user.role == UserRole.student) {
-        // For students, we might need to get trips they've been on
-        // This depends on how you track which students are on which trips
-        // For now, we'll just get all trips, but you might need to adjust this
-      } else if (widget.user.role == UserRole.driver) {
-        fieldName = 'driverId';
-        fieldValue = widget.user.id;
-      } else if (widget.user.role == UserRole.admin) {
-        // Admins can see all trips
-      }
-
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> tripDocs;
+        trips = await StudentService.getStudentTripHistory(widget.user.id);
       
-      if (fieldName != null && fieldValue != null) {
-        tripDocs = await _firestoreService.getFutureData(
-          'trips',
-          condition: fieldName,
-          value: fieldValue,
-        );
-      } else {
-        tripDocs = await _firestoreService.getFutureData('trips');
+      } else if (widget.user.role == UserRole.admin) {
+               trips = await AdminService.getTripHistory();
+
+      } else if (widget.user.role == UserRole.driver) {
+        trips = await DriverService.getDriverTrips(widget.user.id);
       }
 
-      final trips = tripDocs.map((doc) => Trip.fromMap(doc.data())).toList();
+    
+
       
       // Sort trips by creation date (newest first)
       trips.sort((a, b) => (b.createdAt ?? DateTime.now())

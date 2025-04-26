@@ -1,3 +1,4 @@
+import 'package:bus_just/models/bus_malfunction.dart';
 import 'package:bus_just/services/auth_service.dart';
 import 'package:bus_just/services/firestore_service.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +28,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   List<Trip> _pendingTrips = [];
   bool _isOnline = false;
   StreamSubscription<Position>? _positionStreamSubscription;
-
 
   @override
   void initState() {
@@ -59,10 +59,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               _startLocationTracking();
             });
           } else {
-
             final pendingTripsQuery = await FirestoreService.instance
                 .getFutureDataWithTwoCondition('trips',
-                condition2: "driverId",value2: _driver?.id,
+                    condition2: "driverId",
+                    value2: _driver?.id,
                     condition1: "status",
                     value1: "pending");
 
@@ -70,9 +70,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               _pendingTrips = pendingTripsQuery.docs
                   .map((doc) => Trip.fromMap(doc.data()))
                   .toList();
-            });                     
-
-
+            });
           }
 
           if (_currentTrip?.busId != null) {
@@ -92,40 +90,36 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-
-
   Future<void> _setupLocationTracking() async {
-    
-      LocationPermission permission = await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permissions are required')),
-          );
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Location permissions are permanently denied'),
-          ),
+          const SnackBar(content: Text('Location permissions are required')),
         );
         return;
       }
-
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location services are disabled')),
-        );
-        return;
-      }
-
-      if (_currentTrip != null && _currentTrip!.status == 'active') {
     }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location permissions are permanently denied'),
+        ),
+      );
+      return;
+    }
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location services are disabled')),
+      );
+      return;
+    }
+
+    if (_currentTrip != null && _currentTrip!.status == 'active') {}
   }
 
   void _startLocationTracking() async {
@@ -162,8 +156,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-
-
   Future<void> _toggleOnlineStatus(bool value) async {
     try {
       final user = AuthService.instance.currentUser;
@@ -190,13 +182,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-  
   Future<void> _reportBusMalfunction() async {
     final TextEditingController _issueController = TextEditingController();
     final TextEditingController _descriptionController =
         TextEditingController();
     String _selectedSeverity = 'Medium';
-    
+
     // Define constants for consistent styling (matching add_bus_bottom_sheet.dart)
     final Color _primaryColor = const Color(0xFF0072ff);
     final Color _secondaryColor = const Color(0xFF00c6ff);
@@ -250,7 +241,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               borderRadius: BorderRadius.circular(_borderRadius),
               borderSide: const BorderSide(color: Colors.red, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           ),
         ),
       );
@@ -301,7 +293,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Form fields
                 _buildTextField(
                   controller: _issueController,
@@ -318,7 +310,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   maxLines: 3,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Dropdown for severity
                 Container(
                   decoration: BoxDecoration(
@@ -336,7 +328,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     decoration: InputDecoration(
                       labelText: 'Severity',
                       labelStyle: TextStyle(color: Colors.grey.shade700),
-                      prefixIcon: Icon(Icons.priority_high_rounded, color: _primaryColor, size: 22),
+                      prefixIcon: Icon(Icons.priority_high_rounded,
+                          color: _primaryColor, size: 22),
                       filled: true,
                       fillColor: Colors.white,
                       enabledBorder: OutlineInputBorder(
@@ -347,9 +340,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         borderRadius: BorderRadius.circular(_borderRadius),
                         borderSide: BorderSide(color: _primaryColor, width: 2),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 16),
                     ),
-                    items: ['Low', 'Medium', 'High', 'Critical'].map((String value) {
+                    items: ['Low', 'Medium', 'High', 'Critical']
+                        .map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(value),
@@ -361,7 +356,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Action buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -370,7 +365,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.grey.shade700,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(_borderRadius),
                         ),
@@ -381,40 +377,53 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     ElevatedButton(
                       onPressed: () async {
                         if (_issueController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text('Please enter an issue title')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Please enter an issue title')));
                           return;
                         }
-            
+
                         try {
                           final user = AuthService.instance.currentUser;
                           if (user != null && _assignedBus != null) {
-                            await FirestoreService.instance.createDocumentWithData(
-                                collection: 'bus_malfunctions',
-                                data: {
-                                  'busId': _assignedBus!.id,
-                                  'driverId': user.uid,
-                                  'issue': _issueController.text,
-                                  'description': _descriptionController.text,
-                                  'severity': _selectedSeverity,
-                                  'status': 'reported',
-                                  'timestamp': DateTime.now(),
-                                });
-            
+                            // Create BusMalfunction instance
+                            final malfunction = BusMalfunction(
+                              id: '', // Firestore will generate the ID, or use a UUID if needed
+                              busId: _assignedBus?.id ?? '',
+                              driverId: user.uid,
+                              reporterName: _driver?.fullName ?? '',
+                              issue: _issueController.text,
+                              description: _descriptionController.text,
+                              severity: _selectedSeverity,
+                              status: 'reported',
+                              timestamp: DateTime.now(),
+                              isFixed: false,
+                            );
+
+                            await FirestoreService.instance
+                                .createDocumentWithData(
+                              collection: 'bus_malfunctions',
+                              data: malfunction.toMap(),
+                            );
+
                             Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                content: Text('Malfunction reported successfully')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Malfunction reported successfully')));
                           }
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content:
-                                  Text('Failed to report malfunction: ${e.toString()}')));
+                              content: Text(
+                                  'Failed to report malfunction: ${e.toString()}')));
                         }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primaryColor,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(_borderRadius),
                         ),
@@ -422,7 +431,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       ),
                       child: const Text(
                         'Submit',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -434,6 +444,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -484,7 +495,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     'Driver Status',
@@ -495,8 +507,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                     ),
                                   ),
                                   Icon(
-                                    _isOnline ? Icons.check_circle : Icons.cancel,
-                                    color: _isOnline ? Colors.green : Colors.red,
+                                    _isOnline
+                                        ? Icons.check_circle
+                                        : Icons.cancel,
+                                    color:
+                                        _isOnline ? Colors.green : Colors.red,
                                   ),
                                 ],
                               ),
@@ -508,7 +523,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                       ? 'You are online and available'
                                       : 'You are offline',
                                   style: TextStyle(
-                                    color: _isOnline ? Colors.green : Colors.red,
+                                    color:
+                                        _isOnline ? Colors.green : Colors.red,
                                   ),
                                 ),
                                 value: _isOnline,
@@ -522,7 +538,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
                       const SizedBox(height: 16),
 
-                  
                       // Current Route Card
                       Card(
                         elevation: 6,
@@ -547,15 +562,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF0072ff).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: const Color(0xFF0072ff)
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: const Icon(
                                           Icons.route_rounded,
@@ -575,345 +593,298 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                       ),
                                     ],
                                   ),
-                             
                                 ],
                               ),
                               const SizedBox(height: 20),
-                              if (_pendingTrips.isNotEmpty && _currentTrip == null)
-                              Column(
+                              if (_pendingTrips.isNotEmpty &&
+                                  _currentTrip == null)
+                                Column(
                                   children: [
                                     const Text('Available Trips',
-                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 8),
                                     ListView.builder(
                                       shrinkWrap: true,
-                                      physics: const NeverScrollableScrollPhysics(),
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
                                       itemCount: _pendingTrips.length,
                                       itemBuilder: (context, index) {
                                         final trip = _pendingTrips[index];
                                         return Card(
-  elevation: 4,
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
-  ),
-  child: Container(
-    decoration: BoxDecoration(
-gradient:  LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.white,
-                                      Colors.blue.shade50,
-                                    ],
-                                  ),      borderRadius: BorderRadius.circular(12),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(0.1),
-          spreadRadius: 1,
-          blurRadius: 6,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Trip Details Section
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Trip #${trip.id?.substring(0, 6)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Color(0xFF0072ff),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.green),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${trip.stations?.first.name}',
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.red),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${trip.stations?.last.name}',
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+                                          elevation: 4,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: [
+                                                  Colors.white,
+                                                  Colors.blue.shade50,
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.grey
+                                                      .withOpacity(0.1),
+                                                  spreadRadius: 1,
+                                                  blurRadius: 6,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.all(16.0),
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  // Trip Details Section
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          'Trip #${trip.id?.substring(0, 6)}',
+                                                          style:
+                                                              const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 18,
+                                                            color: Color(
+                                                                0xFF0072ff),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 8),
+                                                        Row(
+                                                          children: [
+                                                            const Icon(
+                                                                Icons
+                                                                    .location_on,
+                                                                size: 16,
+                                                                color: Colors
+                                                                    .green),
+                                                            const SizedBox(
+                                                                width: 6),
+                                                            Text(
+                                                              '${trip.stations?.first.name}',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .grey[700],
+                                                                fontSize: 14,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 4),
+                                                        Row(
+                                                          children: [
+                                                            const Icon(
+                                                                Icons
+                                                                    .location_on,
+                                                                size: 16,
+                                                                color:
+                                                                    Colors.red),
+                                                            const SizedBox(
+                                                                width: 6),
+                                                            Text(
+                                                              '${trip.stations?.last.name}',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .grey[700],
+                                                                fontSize: 14,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
 
-          const SizedBox(width: 16),
+                                                  const SizedBox(width: 16),
 
-          // Bus Image and Accept Button Section
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Bus Image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  'assets/images/bus.png',
-                  height: 60,
-                  width: 80,
-                ),
-              ),
+                                                  // Bus Image and Accept Button Section
+                                                  Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      // Bus Image
+                                                      ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        child: Image.asset(
+                                                          'assets/images/bus.png',
+                                                          height: 60,
+                                                          width: 80,
+                                                        ),
+                                                      ),
 
-              // Accept Button
-              ElevatedButton(
-                onPressed: _isOnline
-                    ? () async {
-                        try {
-                          await FirestoreService.instance.updateDocument(
-                            collection: 'trips',
-                            documentId: trip.id!,
-                            data: {
-                              'status': 'active',
-                              'driverId': _driver?.id,
-                            },
-                          );
-                          setState(() {
-                            _currentTrip = trip;
-                            _pendingTrips.remove(trip);
-                            _startLocationTracking();
-                            _loadDriverData();
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Trip accepted successfully')),
-                          );
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to accept trip: ${e.toString()}')),
-                          );
-                        }
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0072ff),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric( horizontal: 24),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Accept',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  ),
-);
+                                                      // Accept Button
+                                                      ElevatedButton(
+                                                        onPressed: _isOnline
+                                                            ? () async {
+                                                                try {
+                                                                  await FirestoreService
+                                                                      .instance
+                                                                      .updateDocument(
+                                                                    collection:
+                                                                        'trips',
+                                                                    documentId:
+                                                                        trip.id!,
+                                                                    data: {
+                                                                      'status':
+                                                                          'active',
+                                                                      'driverId':
+                                                                          _driver
+                                                                              ?.id,
+                                                                    },
+                                                                  );
+                                                                  setState(() {
+                                                                    _currentTrip =
+                                                                        trip;
+                                                                    _pendingTrips
+                                                                        .remove(
+                                                                            trip);
+                                                                    _startLocationTracking();
+                                                                    _loadDriverData();
+                                                                  });
+                                                                  ScaffoldMessenger.of(
+                                                                          context)
+                                                                      .showSnackBar(
+                                                                    const SnackBar(
+                                                                        content:
+                                                                            Text('Trip accepted successfully')),
+                                                                  );
+                                                                } catch (e) {
+                                                                  ScaffoldMessenger.of(
+                                                                          context)
+                                                                      .showSnackBar(
+                                                                    SnackBar(
+                                                                        content:
+                                                                            Text('Failed to accept trip: ${e.toString()}')),
+                                                                  );
+                                                                }
+                                                              }
+                                                            : null,
+                                                        style: ElevatedButton
+                                                            .styleFrom(
+                                                          backgroundColor:
+                                                              const Color(
+                                                                  0xFF0072ff),
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .symmetric(
+                                                                  horizontal:
+                                                                      24),
+                                                          shape:
+                                                              RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12),
+                                                          ),
+                                                        ),
+                                                        child: const Text(
+                                                          'Accept',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              fontSize: 14),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
                                       },
                                     ),
                                   ],
                                 )
                               else if (_currentTrip != null)
-                               FutureBuilder<Map<String, dynamic>>(
-                          future: Future.wait([
-                            FirestoreService.instance
-                                .getStreamedData('buses')
-                                .first
-                                .then((snapshot) => snapshot.docs
-                                    .firstWhere((doc) => doc.id == _currentTrip!.busId)
-                                    .data() as Map<String, dynamic>),
-                            FirestoreService.instance
-                                .getStreamedData('users',
-                                    condition: 'id', value: _currentTrip!.driverId)
-                                .first
-                                .then((snapshot) => snapshot.docs.first.data()
-                                    as Map<String, dynamic>),
-                          ]).then((results) => {
-                                'bus': Bus.fromMap(results[0]),
-                                'driver': Driver.fromMap(results[1]),
-                              }),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Card(
-                                child: ListTile(
-                                  leading: CircularProgressIndicator(),
-                                  title: Text('Loading trip details...'),
-                                ),
-                              );
-                            }
+                                FutureBuilder<Map<String, dynamic>>(
+                                  future: Future.wait([
+                                    FirestoreService.instance
+                                        .getStreamedData('buses')
+                                        .first
+                                        .then((snapshot) => snapshot.docs
+                                            .firstWhere((doc) =>
+                                                doc.id == _currentTrip!.busId)
+                                            .data() as Map<String, dynamic>),
+                                    FirestoreService.instance
+                                        .getStreamedData('users',
+                                            condition: 'id',
+                                            value: _currentTrip!.driverId)
+                                        .first
+                                        .then((snapshot) => snapshot.docs.first
+                                            .data() as Map<String, dynamic>),
+                                  ]).then((results) => {
+                                        'bus': Bus.fromMap(results[0]),
+                                        'driver': Driver.fromMap(results[1]),
+                                      }),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Card(
+                                        child: ListTile(
+                                          leading: CircularProgressIndicator(),
+                                          title:
+                                              Text('Loading trip details...'),
+                                        ),
+                                      );
+                                    }
 
-                            if (snapshot.hasError) {
-                              return const Center(
-                                  child: Text('No active trips'));
-                            }
+                                    if (snapshot.hasError) {
+                                      return const Center(
+                                          child: Text('No active trips'));
+                                    }
 
-                            final bus = snapshot.data!['bus'] as Bus;
-                            final driver = snapshot.data!['driver'] as Driver;
+                                    final bus = snapshot.data!['bus'] as Bus;
+                                    final driver =
+                                        snapshot.data!['driver'] as Driver;
 
-                            return Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                             
-                              child: Container(
-                                padding: const EdgeInsets.all(16.0),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.white,
-                                      Colors.blue.shade50,
-                                    ],
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Text(
-                                                    '${bus.busName}',
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    '| #${bus.busNumber}',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.person_outline,
-                                                    size: 16,
-                                                    color: Colors.grey[600],
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    driver.fullName ?? '',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
+                                    return Card(
+                                      elevation: 2,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16.0),
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Colors.white,
+                                              Colors.blue.shade50,
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(width: 16),
-                                        SizedBox(
-                                          width: 100,
-                                          height: 80,
-                                          child: Image.asset(
-                                              "assets/images/bus.png"),
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.airline_seat_recline_normal,
-                                          size: 16,
-                                          color: Color(0xFF0072ff),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Capacity: ${bus.capacity}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        const Icon(
-                                          Icons.route,
-                                          size: 16,
-                                          color: Color(0xFF0072ff),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${((_currentTrip?.distance??0)/1000).toStringAsFixed(1)} km',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        const Icon(
-                                          Icons.access_time,
-                                          size: 16,
-                                          color: Color(0xFF0072ff),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${_currentTrip?.estimatedTimeMinutes ?? '0'} min',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          top: BorderSide(
-                                              color: Colors.grey[200]!),
-                                        ),
-                                      ),
-                                      child: Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              if (_currentTrip?.stations != null &&
-                                                  _currentTrip!.stations!.isNotEmpty)
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
                                                 Expanded(
-                                                  // Prevents overflow inside the Row
                                                   child: Column(
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment
@@ -921,171 +892,260 @@ gradient:  LinearGradient(
                                                     children: [
                                                       Row(
                                                         children: [
-                                                          Container(
-                                                            width: 18,
-                                                            height: 18,
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .all(4),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: Colors
-                                                                  .green[100],
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                            ),
-                                                            child: Container(
-                                                              decoration:
-                                                                  const BoxDecoration(
-                                                                color: Colors
-                                                                    .green,
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
+                                                          Text(
+                                                            '${bus.busName}',
+                                                            style:
+                                                                const TextStyle(
+                                                              fontSize: 18,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
                                                             ),
                                                           ),
                                                           const SizedBox(
                                                               width: 8),
-                                                          Expanded(
-                                                            // Ensures text does not overflow
-                                                            child: Text(
-                                                              _currentTrip
-                                                                      ?.stations!
-                                                                      .first
-                                                                      .name ??
-                                                                  'Starting Point',
-                                                              style:
-                                                                  const TextStyle(
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
+                                                          Text(
+                                                            '| #${bus.busNumber}',
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              color: Colors
+                                                                  .grey[600],
                                                             ),
                                                           ),
                                                         ],
                                                       ),
-                                                      if (_currentTrip!.stations!
-                                                              .length >
-                                                          1)
-                                                        Row(
-                                                          children: [
-                                                            Container(
-                                                              width: 18,
-                                                              height: 18,
-                                                              padding:
-                                                                  const EdgeInsets
-                                                                      .all(4),
-                                                              decoration:
-                                                                  BoxDecoration(
-                                                                color: Colors
-                                                                    .red[100],
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                              child: Container(
-                                                                decoration:
-                                                                    const BoxDecoration(
-                                                                  color: Colors
-                                                                      .red,
-                                                                  shape: BoxShape
-                                                                      .circle,
-                                                                ),
-                                                              ),
+                                                      const SizedBox(height: 8),
+                                                      Row(
+                                                        children: [
+                                                          Icon(
+                                                            Icons
+                                                                .person_outline,
+                                                            size: 16,
+                                                            color: Colors
+                                                                .grey[600],
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Text(
+                                                            driver.fullName ??
+                                                                '',
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              color: Colors
+                                                                  .grey[600],
                                                             ),
-                                                            const SizedBox(
-                                                                width: 8),
-                                                            Expanded(
-                                                              // Prevents overflow
-                                                              child: Text(
-                                                                _currentTrip
-                                                                        ?.stations!
-                                                                        .last
-                                                                        .name ??
-                                                                    'Destination',
-                                                                style:
-                                                                    const TextStyle(
-                                                                  fontSize: 14,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 8),
                                                     ],
                                                   ),
                                                 ),
-                                              const SizedBox(
-                                                  width:
-                                                      8), // Adds spacing to prevent overflow
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: _currentTrip?.status == 'active'
-                                                      ? Colors.green[100]
-                                                      : Colors.grey[100],
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
+                                                const SizedBox(width: 16),
+                                                SizedBox(
+                                                  width: 100,
+                                                  height: 80,
+                                                  child: Image.asset(
+                                                      "assets/images/bus.png"),
                                                 ),
-                                                child: Text(
-                                                  _currentTrip!.status?.toUpperCase() ??
-                                                      'N/A',
+                                              ],
+                                            ),
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons
+                                                      .airline_seat_recline_normal,
+                                                  size: 16,
+                                                  color: Color(0xFF0072ff),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Capacity: ${bus.capacity}',
                                                   style: TextStyle(
-                                                    color:
-                                                        _currentTrip!.status == 'active'
-                                                            ? Colors.green[900]
-                                                            : Colors.grey[900],
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 14,
+                                                    color: Colors.grey[600],
                                                   ),
                                                 ),
+                                                const SizedBox(width: 16),
+                                                const Icon(
+                                                  Icons.route,
+                                                  size: 16,
+                                                  color: Color(0xFF0072ff),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${((_currentTrip?.distance ?? 0) / 1000).toStringAsFixed(1)} km',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                const Icon(
+                                                  Icons.access_time,
+                                                  size: 16,
+                                                  color: Color(0xFF0072ff),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${_currentTrip?.estimatedTimeMinutes ?? '0'} min',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border(
+                                                  top: BorderSide(
+                                                      color: Colors.grey[200]!),
+                                                ),
                                               ),
-                                            ],
-                                          )),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        )
+                                              child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.all(8.0),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      if (_currentTrip
+                                                                  ?.stations !=
+                                                              null &&
+                                                          _currentTrip!
+                                                              .stations!
+                                                              .isNotEmpty)
+                                                      Expanded(
+  // Ensures text does not overflow
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (int i = 0; i < (_currentTrip?.stations?.length ?? 0); i++)
+        Row(
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: i == 0
+                    ? Colors.green[100]
+                    : (i == (_currentTrip!.stations!.length - 1)
+                        ? Colors.red[100]
+                        : Colors.grey[200]),
+                shape: BoxShape.circle,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: i == 0
+                      ? Colors.green
+                      : (i == (_currentTrip!.stations!.length - 1)
+                          ? Colors.red
+                          : Colors.grey),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _currentTrip!.stations![i].name ?? 'Station ${i + 1}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+    ],
+  ),
+),
+                                                      const SizedBox(
+                                                          width:
+                                                              8), // Adds spacing to prevent overflow
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 8,
+                                                                
+                                                                vertical: 4),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: _currentTrip
+                                                                      ?.status ==
+                                                                  'active'
+                                                              ? Colors
+                                                                  .green[100]
+                                                              : Colors
+                                                                  .grey[100],
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          _currentTrip!.status
+                                                                  ?.toUpperCase() ??
+                                                              'N/A',
+                                                          style: TextStyle(
+                                                            color: _currentTrip!
+                                                                        .status ==
+                                                                    'active'
+                                                                ? Colors
+                                                                    .green[900]
+                                                                : Colors
+                                                                    .grey[900],
+                                                            fontSize: 12,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  )),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
                               else
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade50,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade200),
+                                    border:
+                                        Border.all(color: Colors.grey.shade200),
                                   ),
                                   child: const Row(
                                     children: [
-                                      Icon(Icons.info_outline, color: Colors.grey),
+                                      Icon(Icons.info_outline,
+                                          color: Colors.grey),
                                       SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               'No active route',
-                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold),
                                             ),
                                             SizedBox(height: 4),
                                             Text(
                                               'Wait for admin to assign a route',
-                                              style: TextStyle(color: Colors.grey, fontSize: 13),
+                                              style: TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 13),
                                             ),
                                           ],
                                         ),
@@ -1093,86 +1153,123 @@ gradient:  LinearGradient(
                                     ],
                                   ),
                                 ),
-                                if (_currentTrip != null && _currentTrip!.status == 'active')
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      const SizedBox(height: 20),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [Colors.green.shade300, Colors.green.shade100],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
+                              if (_currentTrip != null &&
+                                  _currentTrip!.status == 'active')
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const SizedBox(height: 20),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 16),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.green.shade300,
+                                            Colors.green.shade100
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.green.withOpacity(0.2),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
                                           ),
-                                          borderRadius: BorderRadius.circular(12),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.green.withOpacity(0.2),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.check_circle_rounded, color: Colors.white, size: 24),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              'Trip Active',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 16),
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.stop_circle_outlined),
-                                        label: const Text('Finish Trip'),
-                                        onPressed: () async {
-                                          try {
-                                            await FirestoreService.instance.updateDocument(
-                                              collection: 'trips',
-                                              documentId: _currentTrip!.id!,
-                                              data: {'status': 'finished'},
+                                      child: const Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.check_circle_rounded,
+                                              color: Colors.white, size: 24),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Trip Active',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton.icon(
+                                      icon: const Icon(
+                                          Icons.stop_circle_outlined),
+                                      label: const Text('Finish Trip'),
+                                      onPressed: () async {
+                                        try {
+                                          await FirestoreService.instance
+                                              .updateDocument(
+                                            collection: 'trips',
+                                            documentId: _currentTrip!.id!,
+                                            data: {'status': 'finished'},
+                                          );
+                                          final user =
+                                              AuthService.instance.currentUser;
+                                          if (user != null) {
+                                            await FirestoreService.instance
+                                                .updateDocument(
+                                              collection: 'users',
+                                              documentId: user.uid,
+                                              data: {'assignedBus': null},
                                             );
-                                            _positionStreamSubscription?.cancel();
-                                            setState(() {
-                                              _currentTrip = null;
-                                              _assignedBus = null;
-                                              _positionStreamSubscription?.cancel();
-                                            });
-                                            if (mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Trip finished successfully')),
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('Error finishing trip: ${e.toString()}')),
-                                              );
-                                            }
                                           }
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red.shade600,
-                                          foregroundColor: Colors.white,
-                                          elevation: 2,
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
+                                             if (_assignedBus != null && _assignedBus!.id != null) {
+      await FirestoreService.instance.updateDocument(
+        collection: 'buses',
+        documentId: _assignedBus!.id!,
+        data: {'currentLocation': null,"currentTripId":null,"driverId":null,"isActive":true},
+      );
+    }
+                                          _positionStreamSubscription?.cancel();
+                                          setState(() {
+                                            _currentTrip = null;
+                                            _assignedBus = null;
+                                            _positionStreamSubscription
+                                                ?.cancel();
+                                          });
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      'Trip finished successfully')),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                  content: Text(
+                                                      'Error finishing trip: ${e.toString()}')),
+                                            );
+                                          }
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red.shade600,
+                                        foregroundColor: Colors.white,
+                                        elevation: 2,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                       ),
-                                    ],
-                                  )
+                                    ),
+                                  ],
+                                )
                             ],
                           ),
                         ),
@@ -1257,14 +1354,14 @@ gradient:  LinearGradient(
                         elevation: 2,
                         child: Container(
                           decoration: BoxDecoration(
-                           gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.white,
-                                      Colors.blue.shade50,
-                                    ],
-                                  ), 
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white,
+                                Colors.blue.shade50,
+                              ],
+                            ),
                           ),
                           padding: const EdgeInsets.all(10.0),
                           child: Column(

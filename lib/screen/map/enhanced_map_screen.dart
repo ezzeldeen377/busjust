@@ -10,13 +10,13 @@ import 'package:geolocator/geolocator.dart';
 
 class EnhancedMapScreen extends StatefulWidget {
   final LatLng? initialBusLocation;
-  final String? busId;
+  final String busId;
   final List<Station> stations;
 
   const EnhancedMapScreen({
     super.key,
     this.initialBusLocation,
-    this.busId,
+    required this.busId,
     required this.stations,
   });
 
@@ -29,10 +29,11 @@ class _EnhancedMapScreenState extends State<EnhancedMapScreen> {
   final Set<Marker> _markers = {};
   final BusTrackingService _busTrackingService = BusTrackingService();
 
-  static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(24.7136, 46.6753), // Default to Riyadh, Saudi Arabia
-    zoom: 14.0,
-  );
+  // Remove static _initialPosition
+  // static const CameraPosition _initialPosition = CameraPosition(
+  //   target: LatLng(24.7136, 46.6753), // Default to Riyadh, Saudi Arabia
+  //   zoom: 14.0,
+  // );
   late StreamSubscription<LatLng> _locationSubscription;
   LatLng? _currentUserLocation;
   bool _isLoadingLocation = false;
@@ -240,7 +241,7 @@ class _EnhancedMapScreenState extends State<EnhancedMapScreen> {
 
   void _startBusLocationTracking() {
     _locationSubscription =
-        _busTrackingService.getBusLocationStream(widget.busId!).listen(
+        _busTrackingService.getBusLocationStream(widget.busId).listen(
       (LatLng location) {
         if (mounted) {
           _updateBusMarker(location);
@@ -291,21 +292,24 @@ class _EnhancedMapScreenState extends State<EnhancedMapScreen> {
       ),
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: widget.initialBusLocation != null
-                ? CameraPosition(
-                    target: widget.initialBusLocation!,
-                    zoom: 15.0,
-                  )
-                : _initialPosition,
-            markers: _markers,
-            zoomControlsEnabled: true,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-            },
-          ),
+          if (!_isLoadingLocation && _currentUserLocation != null)
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: _currentUserLocation!,
+                zoom: 15.0,
+              ),
+              markers: _markers,
+              zoomControlsEnabled: true,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              onMapCreated: (GoogleMapController controller) {
+                _mapController = controller;
+              },
+            ),
+          if (_isLoadingLocation || _currentUserLocation == null)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
           Positioned(
             bottom: 16,
             right: 16,

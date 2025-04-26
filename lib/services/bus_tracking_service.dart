@@ -31,9 +31,10 @@ class BusTrackingService {
 
   // Get real-time bus location for a specific trip
   Stream<LatLng> getBusLocationStream(String busId) {
+    print("busId: $busId");
     return _firestore
         .collection('buses')
-        .doc("XLcbe8LaSeEaYAu7l4ZB")
+        .doc(busId)
         .snapshots()
         .map((snapshot) {
           if (!snapshot.exists) {

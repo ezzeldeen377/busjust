@@ -12,6 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();  // Add form key
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   String? errorMessage;
@@ -32,38 +33,39 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: SingleChildScrollView(
           child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 60),
-                  Image.asset(
-                    'assets/images/logobus.png',
-                    height: 120,
-                    width: 120,
-                  ),
-                  const SizedBox(height: 40),
-                  const Text(
-                    'Welcome Back',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+            child: Form(  // Wrap with Form widget
+              key: _formKey,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 60),
+                    Image.asset(
+                      'assets/images/logobus.png',
+                      height: 120,
+                      width: 120,
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Sign in to continue',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
+                    const SizedBox(height: 40),
+                    const Text(
+                      'Welcome Back',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 40),
-
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Sign in to continue',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
               const Text(
                 'Email Address',
                 style: TextStyle(
@@ -79,6 +81,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 hint: 'Enter your email',
                 obscureText: false,
                 color: Colors.blueAccent,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
 
@@ -97,6 +108,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 hint: 'Enter your password',
                 obscureText: true,
                 color: Colors.blueAccent,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
 
@@ -110,24 +130,24 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 10),
 
               // Don't have an account link
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, Routes.control);
-                },
-                child: const Text(
-                  "Don't have an account? Create one",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold
-                  ),
-                ),
-              ),
+              // TextButton(
+              //   onPressed: () {
+              //     Navigator.pushNamed(context, Routes.control);
+              //   },
+              //   child: const Text(
+              //     "Don't have an account? Create one",
+              //     style: TextStyle(
+              //       color: Colors.white,
+              //       fontSize: 16,
+              //       fontWeight: FontWeight.bold
+              //     ),
+              //   ),
+              // ),
             ],
           ),
         ),
       ),
-        ))  );
+        )) ) );
   }
 
   // بناء حقل النصوص (البريد وكلمة السر)
@@ -137,40 +157,28 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hint,
     required bool obscureText,
     required Color color,
+    String? Function(String?)? validator,  // Add validator parameter
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscureText,
-        style: const TextStyle(fontSize: 16, color: Colors.black87),
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-          labelStyle: TextStyle(color: color.withOpacity(0.8)),
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[400]),
-          prefixIcon: Icon(icon, color: color, size: 22),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: color, width: 1.5),
-          ),
+    return TextFormField(  // Change TextField to TextFormField
+      controller: controller,
+      obscureText: obscureText,
+      validator: validator,
+      style: const TextStyle(fontSize: 16, color: Colors.black87),
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+        labelStyle: TextStyle(color: color.withOpacity(0.8)),
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey[400]),
+        prefixIcon: Icon(icon, color: color, size: 22),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide.none,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: color, width: 1.5),
         ),
       ),
     );
@@ -239,6 +247,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleLogin() async {
     if (!mounted) return;
+    
+    if (!_formKey.currentState!.validate()) {  // Add form validation
+      return;
+    }
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -264,6 +277,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }}
      catch (e) {
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()),backgroundColor: Colors.redAccent,),
+        
+      );
       setState(() {
         errorMessage = e.toString();
       });
@@ -293,10 +310,14 @@ class _LoginScreenState extends State<LoginScreen> {
       await AuthService.instance.resetPassword(emailController.text.trim());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password reset email sent. Please check your inbox.')),
+        const SnackBar(content: Text('Password reset email sent. Please check your inbox.'),backgroundColor: Colors.green,),
       );
     } catch (e) {
       if (!mounted) return;
+           ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()),backgroundColor: Colors.redAccent,),
+        
+      );
       setState(() {
         errorMessage = e.toString();
       });
