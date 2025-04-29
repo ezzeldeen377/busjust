@@ -315,7 +315,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                         const Icon(Icons.straighten, color: Colors.grey, size: 16),
                         const SizedBox(width: 4),
                         Text(
-                          '${trip.distance?.toStringAsFixed(1)} km',
+                          '${(trip.distance! / 1000).toStringAsFixed(1)} km',
                           style: const TextStyle(color: Colors.grey, fontSize: 12),
                         ),
                       ],
@@ -515,7 +515,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                     _detailItem('From', fromStation!),
                     _detailItem('To', toStation!),
                     if (trip.distance != null)
-                      _detailItem('Distance', '${trip.distance?.toStringAsFixed(1)} km'),
+                      _detailItem('Distance', '${(trip.distance! / 1000).toStringAsFixed(1)} km'),
                     if (trip.estimatedTimeMinutes != null)
                       _detailItem('Estimated Time', '${trip.estimatedTimeMinutes} minutes'),
                     _detailItem('Driver ID', trip.driverId ?? 'Unknown'),

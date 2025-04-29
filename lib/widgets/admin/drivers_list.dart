@@ -30,10 +30,12 @@ class DriversList extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         StreamBuilder<QuerySnapshot>(
-          stream: FirestoreService.instance.getStreamedData(
+          stream: FirestoreService.instance.getStreamedDataWithTwoConditions(
             "users",
-            condition: "role",
-            value: "driver",
+            condition1: "role",
+            value1: "driver",
+            condition2: "workStatus",
+            value2: "online",
           ),
           builder: (context, snapshot) {
             if (snapshot.hasError) {

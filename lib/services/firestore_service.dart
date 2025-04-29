@@ -42,13 +42,28 @@ class FirestoreService {
       {String? condition, dynamic value}) {
     var query = _firestore.collection(collection);
     Query<Map<String, dynamic>> streamedData;
-
+  
     if (condition != null) {
       streamedData = query.where(condition, isEqualTo: value);
       return streamedData.snapshots();
     } else {
       return query.snapshots();
     }
+  }
+
+  // New function with two conditions
+  Stream<QuerySnapshot> getStreamedDataWithTwoConditions(
+    String collection, {
+    required String condition1,
+    required dynamic value1,
+    required String condition2,
+    required dynamic value2,
+  }) {
+    return _firestore
+        .collection(collection)
+        .where(condition1, isEqualTo: value1)
+        .where(condition2, isEqualTo: value2)
+        .snapshots();
   }
 
   // Get filtered future of collection you pass based on conditions you pass
